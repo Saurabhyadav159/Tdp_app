@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
 class SharedColors {
-  static const Color primary = Color(0xFFFF9800);
-  static const Color primaryDark = Color(0xFFFF9800);
-  static const Color primaryLight = Color(0xFFFF9800);
+  static const Color primary = Color(0xFFF44336);
+  static const Color primaryDark = Color(0xFFFFEF8C);
+  static const Color primaryLight = Color(0xFFFFEF8C);
   static const Color buttonBorderColor = Color(0xfffff8dc);
   static const Color buttonTextColor = Colors.white;
   static const Color selectorBorderColor = Colors.white;
@@ -14,5 +14,5 @@ class SharedColors {
   static const Color unselectedEventColor = Color(0xfff5f5f5);
   static const Color selectedEventColor = Color(0xfffff8dc);
   static const Color selectTheTotalProfile = Color(0xFFFBF1F9);
-  static const Color accentOrange = Color(0xFFFF9800); // 🟧 Orange color added
+  static const Color accentOrange = Color(0xFFFFEF8C);
 }

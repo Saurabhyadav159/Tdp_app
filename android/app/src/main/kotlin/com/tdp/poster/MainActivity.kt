@@ -1,4 +1,4 @@
-package com.bjp.poster
+package com.tdp.poster
 
 import io.flutter.embedding.android.FlutterActivity
 

@@ -19,7 +19,7 @@ class AppColors {
   static const Color accentGreen = Color(0xFF4CAF50);
   static const Color accentRed = Color(0xFFF44336);
   static const Color accentBlue = Color(0xFF2196F3);
-  static const Color accentOrange = Color(0xFFFF9800); // 🟧 Orange color added
+  static const Color accentOrange =Color(0xFFFFEF8C);
 
   // Border colors
   static const Color borderGrey = Color(0xFFE0E0E0);

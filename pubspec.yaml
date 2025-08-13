@@ -62,23 +62,21 @@ flutter:
     - assets/images/
     - assets/lottie/success.json
 
-# ✅ App launcher icon configuration
 flutter_launcher_icons:
   android: "launcher_icon"
   ios: true
   image_path: "assets/app_icon.png"
-  adaptive_icon_background: "#FFA500"
+  adaptive_icon_background: "#FFEF8C" # Yellow
 
 # ✅ Splash screen configuration
-
 flutter_native_splash:
-  color: "#FFA500" # Orange for all platforms
+  color: "#FFEF8C" # Yellow for all platforms
   image: "assets/app_icon.png"
   android: true
   ios: true
   web: false
   android_12:
-    color: "#FFA500" # Orange for Android 12 too
+    color: "#FFEF8C" # Yellow for Android 12 too
     image: "assets/app_icon.png"
-    icon_background_color: "#FFA500"
+    icon_background_color: "#FFEF8C"
 

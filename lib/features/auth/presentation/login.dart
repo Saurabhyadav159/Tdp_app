@@ -220,7 +220,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: ElevatedButton(
                       onPressed: () => getOtp(context),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.accentOrange,
+                        backgroundColor: AppColors.accentRed,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),

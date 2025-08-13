@@ -15,7 +15,7 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace = "com.bjp.poster"
+    namespace = "com.tdp.poster"
     compileSdk = 35  // Updated to 35 as required by plugins
 
     compileOptions {
@@ -28,7 +28,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.bjp.poster"
+        applicationId = "com.tdp.poster"
         minSdk = 21
         targetSdk = 35  // Updated to 35
         versionCode = 1

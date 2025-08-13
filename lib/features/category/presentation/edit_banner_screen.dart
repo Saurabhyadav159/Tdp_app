@@ -3075,7 +3075,7 @@ class _SocialMediaDetailsPageState extends State<SocialMediaDetailsPage> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: SharedColors.primary,
+        backgroundColor: SharedColors.primaryDark,
         title: const Text("Social Media Details", style: TextStyle(fontSize: 16, color: Colors.white)),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
@@ -3435,7 +3435,7 @@ class _SocialMediaDetailsPageState extends State<SocialMediaDetailsPage> {
                 width: double.infinity,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: SharedColors.primaryDark,
+                    backgroundColor: SharedColors.primary,
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
@@ -3550,7 +3550,7 @@ class _SocialMediaDetailsPageState extends State<SocialMediaDetailsPage> {
                   width: double.infinity,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: SharedColors.primaryDark,
+                      backgroundColor: SharedColors.primary,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -3595,7 +3595,7 @@ class _SocialMediaDetailsPageState extends State<SocialMediaDetailsPage> {
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: SharedColors.primaryDark,
+                    color: SharedColors.primary,
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -3603,7 +3603,7 @@ class _SocialMediaDetailsPageState extends State<SocialMediaDetailsPage> {
                   width: double.infinity,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: SharedColors.primaryDark,
+                      backgroundColor: SharedColors.primary,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
