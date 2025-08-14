@@ -2,13 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:logger/logger.dart';
 import '../../../core/network/api_service.dart';
 
+class SharedColors {
+  static const Color primary = Color(0xFFFFEF8C);     // AppBar color
+  static const Color primaryDark = Color(0xFFF44336); // Button + border color
+}
+
 class EditProfilePage extends StatefulWidget {
   @override
   _EditProfilePageState createState() => _EditProfilePageState();
 }
 
 class _EditProfilePageState extends State<EditProfilePage> {
-  static const Color primary = Color(0xff3b0052);
   bool isEditing = false;
   bool isLoading = false;
   bool isFetching = true;
@@ -28,15 +32,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   Future<void> _fetchProfileData() async {
     setState(() => isFetching = true);
-
     try {
       final profileData = await ApiService().getProfile();
       logger.d("Profile data fetched: $profileData");
-
       setState(() {
         nameController.text = profileData['userDetail']['name'] ?? '';
         phoneController.text = profileData['phoneNumber'] ?? '';
-        emailController.text = profileData['userDetail']['email'] ?? profileData['email'] ?? '';
+        emailController.text =
+            profileData['userDetail']['email'] ?? profileData['email'] ?? '';
         profileIdController.text = profileData['id'] ?? '';
         userIdController.text = profileData['userDetail']['userId'] ?? '';
         isFetching = false;
@@ -48,31 +51,24 @@ class _EditProfilePageState extends State<EditProfilePage> {
     }
   }
 
-  // In EditProfilePage's _updateProfile method:
   Future<void> _updateProfile() async {
     if (nameController.text.isEmpty || emailController.text.isEmpty) {
       _showSnackBar("Name and email cannot be empty");
       return;
     }
-
     setState(() => isLoading = true);
-
     try {
       final updatedProfile = await ApiService().updateUserDetails(
         name: nameController.text,
         email: emailController.text,
       );
-
       logger.d("Profile updated: $updatedProfile");
       setState(() => isEditing = false);
       _showSnackBar("Profile updated successfully");
-
-      // Return the updated data when popping
       Navigator.pop(context, {
         'name': nameController.text,
         'email': emailController.text,
       });
-
     } catch (e) {
       logger.e("Update error: $e");
       _showSnackBar("Failed to update profile: ${e.toString()}");
@@ -80,12 +76,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
       setState(() => isLoading = false);
     }
   }
+
   void _showSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        behavior: SnackBarBehavior.floating,
-      ),
+      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
     );
   }
 
@@ -93,14 +87,15 @@ class _EditProfilePageState extends State<EditProfilePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: primary,
+        backgroundColor: SharedColors.primary,
         title: const Text("Edit Profile", style: TextStyle(color: Colors.white)),
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
           if (!isFetching)
             IconButton(
               icon: Icon(isEditing ? Icons.check : Icons.edit, color: Colors.white),
-              onPressed: () => isEditing ? _updateProfile() : setState(() => isEditing = true),
+              onPressed: () =>
+              isEditing ? _updateProfile() : setState(() => isEditing = true),
             ),
         ],
       ),
@@ -112,7 +107,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
     if (isFetching) {
       return const Center(child: CircularProgressIndicator());
     }
-
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
       child: Column(
@@ -128,7 +122,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
     );
   }
 
-  Widget _buildProfileField(String label, IconData icon, TextEditingController controller, {bool isEditable = false}) {
+  Widget _buildProfileField(
+      String label, IconData icon, TextEditingController controller,
+      {bool isEditable = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Column(
@@ -142,12 +138,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
             keyboardType: _getKeyboardType(label),
             decoration: InputDecoration(
               prefixIcon: Icon(icon, color: Colors.grey),
-              border: _buildBorder(),
-              enabledBorder: _buildBorder(Colors.purple.shade200),
-              // focusedBorder: _buildBorder(Colors.purple,width: 2),
-              contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+              border: _buildBorder(SharedColors.primaryDark),
+              enabledBorder: _buildBorder(SharedColors.primaryDark),
+              focusedBorder: _buildBorder(SharedColors.primaryDark),
+              contentPadding:
+              const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
               filled: true,
-              fillColor: isEditing && isEditable ? Colors.white : Colors.grey[100],
+              fillColor:
+              isEditing && isEditable ? Colors.white : Colors.grey[100],
             ),
           ),
         ],
@@ -170,7 +168,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     return OutlineInputBorder(
       borderRadius: BorderRadius.circular(8),
       borderSide: BorderSide(
-        color: color ?? Colors.purple,
+        color: color ?? SharedColors.primaryDark,
         width: width,
       ),
     );
@@ -182,11 +180,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
       child: ElevatedButton(
         onPressed: isLoading ? null : _updateProfile,
         style: ElevatedButton.styleFrom(
-          backgroundColor: primary,
+          backgroundColor: SharedColors.primaryDark,
           minimumSize: const Size(double.infinity, 50),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
         child: isLoading
             ? const SizedBox(

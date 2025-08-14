@@ -12,7 +12,7 @@ import 'package:logger/logger.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'PageContentScreen .dart';
-import 'editprofilenamepage.dart';
+import 'editprofilenamepage.dart' hide SharedColors;
 
 final Logger logger = Logger(); // Initialize the logger
 
