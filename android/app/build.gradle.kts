@@ -31,8 +31,8 @@ android {
         applicationId = "com.tdp.poster"
         minSdk = 21
         targetSdk = 35  // Updated to 35
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.0.2"
         resValue("string", "app_name", "BJP Poster")
 
         // Ensure the applicationName placeholder is defined
