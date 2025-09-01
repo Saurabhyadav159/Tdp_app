@@ -4,8 +4,11 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/network/api_service.dart';
 
+
 class HomeSlider extends StatefulWidget {
-  const HomeSlider({super.key, required List banners});
+  final List<dynamic> banners; // Change to final field
+
+  const HomeSlider({super.key, required this.banners}); // Correct constructor
 
   @override
   State<HomeSlider> createState() => _HomeSliderState();
@@ -13,26 +16,12 @@ class HomeSlider extends StatefulWidget {
 
 class _HomeSliderState extends State<HomeSlider> {
   int _currentIndex = 0;
-  List<Map<String, dynamic>> banners = [];
   final ApiService _apiService = ApiService();
 
   @override
   void initState() {
     super.initState();
-    fetchBanners();
   }
-
-  Future<void> fetchBanners() async {
-    try {
-      final bannerData = await _apiService.getBanners(context: context);
-      setState(() {
-        banners = List<Map<String, dynamic>>.from(bannerData);
-      });
-    } catch (e) {
-      debugPrint('Error fetching banners: $e');
-    }
-  }
-
 
   void _handleBannerTap(Map<String, dynamic> banner) {
     final link = banner['link'];
@@ -64,10 +53,10 @@ class _HomeSliderState extends State<HomeSlider> {
       child: Stack(
         alignment: Alignment.center,
         children: [
-          banners.isEmpty
+          widget.banners.isEmpty // Use widget.banners instead of local banners
               ? const Center(child: CircularProgressIndicator())
               : CarouselSlider.builder(
-            itemCount: banners.length,
+            itemCount: widget.banners.length, // Use widget.banners.length
             options: CarouselOptions(
               height: 160,
               viewportFraction: 1.0,
@@ -83,7 +72,7 @@ class _HomeSliderState extends State<HomeSlider> {
               },
             ),
             itemBuilder: (context, index, _) {
-              final banner = banners[index];
+              final banner = widget.banners[index]; // Use widget.banners[index]
               return GestureDetector(
                 onTap: () => _handleBannerTap(banner),
                 child: ClipRRect(
@@ -102,13 +91,13 @@ class _HomeSliderState extends State<HomeSlider> {
           ),
 
           // Dots Indicator
-          if (banners.isNotEmpty)
+          if (widget.banners.isNotEmpty) // Use widget.banners.isNotEmpty
             Positioned(
               bottom: 10,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: List.generate(
-                  banners.length,
+                  widget.banners.length, // Use widget.banners.length
                       (index) => AnimatedContainer(
                     duration: const Duration(milliseconds: 300),
                     margin: const EdgeInsets.symmetric(horizontal: 3),

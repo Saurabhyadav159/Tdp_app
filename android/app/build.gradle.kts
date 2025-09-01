@@ -6,6 +6,7 @@ plugins {
     id("com.android.application")
     id("kotlin-android")
     id("dev.flutter.flutter-gradle-plugin")
+    id("com.google.gms.google-services") // Add Firebase plugin
 }
 
 val keystorePropertiesFile = rootProject.file("key.properties")
@@ -16,7 +17,7 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace = "com.tdp.poster"
-    compileSdk = 35  // Updated to 35 as required by plugins
+    compileSdk = 35
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -30,12 +31,10 @@ android {
     defaultConfig {
         applicationId = "com.tdp.poster"
         minSdk = 21
-        targetSdk = 35  // Updated to 35
+        targetSdk = 35
         versionCode = 2
         versionName = "1.0.2"
         resValue("string", "app_name", "BJP Poster")
-
-        // Ensure the applicationName placeholder is defined
         manifestPlaceholders["applicationName"] = "io.flutter.app.FlutterApplication"
     }
 
@@ -46,6 +45,7 @@ android {
             keyAlias = keystoreProperties.getProperty("keyAlias")
             keyPassword = keystoreProperties.getProperty("keyPassword")
         }
+        // Remove debug config creation - use default
     }
 
     buildTypes {
@@ -59,7 +59,7 @@ android {
             )
         }
         getByName("debug") {
-            signingConfig = signingConfigs.getByName("debug")
+            // Use default debug signing config
         }
     }
 }
@@ -70,4 +70,7 @@ flutter {
 
 dependencies {
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.20")
+    implementation(platform("com.google.firebase:firebase-bom:32.7.0")) // Firebase BOM
+    implementation("com.google.firebase:firebase-analytics") // Firebase Analytics
+    implementation("com.google.firebase:firebase-messaging") // Firebase Messaging
 }

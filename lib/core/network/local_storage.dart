@@ -3,6 +3,9 @@ import 'package:logger/logger.dart';
 
 final Logger logger = Logger(); // Initialize the logger
 
+// Default App Master ID constant
+const String defaultAppMasterId = '3h0c37e5-7ccb-11f0-ad34-54e1ad3f3d08';
+
 /// Saves the authentication token to SharedPreferences.
 Future<void> saveToken(String token) async {
   final prefs = await SharedPreferences.getInstance();
@@ -51,7 +54,6 @@ Future<String?> getCategoryId() async {
   return categoryId;
 }
 
-
 /// Saves the clicked category ID to SharedPreferences.
 Future<void> saveSearchCategoryClickId(String categoryId) async {
   final prefs = await SharedPreferences.getInstance();
@@ -60,9 +62,51 @@ Future<void> saveSearchCategoryClickId(String categoryId) async {
 }
 
 /// Retrieves the clicked category ID from SharedPreferences.
-Future<String?>getSearchCategoryClickId() async {
+Future<String?> getSearchCategoryClickId() async {
   final prefs = await SharedPreferences.getInstance();
   String? categoryId = prefs.getString('search_category_click_id');
   logger.i("Retrieved Search Category Click ID: $categoryId");
   return categoryId;
+}
+
+/// Saves the app master ID to SharedPreferences.
+/// If no custom ID is provided, uses the default app master ID.
+Future<void> saveAppMasterId([String? customAppMasterId]) async {
+  final prefs = await SharedPreferences.getInstance();
+  final String appMasterIdToSave = customAppMasterId ?? defaultAppMasterId;
+
+  await prefs.setString('app_master_id', appMasterIdToSave);
+  logger.i("App Master ID saved: $appMasterIdToSave");
+}
+
+/// Retrieves the app master ID from SharedPreferences.
+/// Returns the default app master ID if none is stored.
+Future<String> getAppMasterId() async {
+  final prefs = await SharedPreferences.getInstance();
+  String? appMasterId = prefs.getString('app_master_id');
+
+  // If no app master ID is stored, use the default one
+  if (appMasterId == null) {
+    appMasterId = defaultAppMasterId;
+    // Optionally save the default ID for future use
+    await saveAppMasterId(defaultAppMasterId);
+  }
+
+  logger.i("App Master ID retrieved: $appMasterId");
+  return appMasterId;
+}
+
+/// Clears the custom app master ID and restores the default one
+Future<void> resetAppMasterIdToDefault() async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.remove('app_master_id');
+
+  // The next call to getAppMasterId() will automatically use the default
+  logger.i("App Master ID reset to default: $defaultAppMasterId");
+}
+
+/// Checks if the current app master ID is the default one
+Future<bool> isUsingDefaultAppMasterId() async {
+  final currentId = await getAppMasterId();
+  return currentId == defaultAppMasterId;
 }

@@ -74,7 +74,7 @@ class _CategoryScreenState extends State<CategoryScreen>
     try {
       final posters = await ApiService().fetchPosters(
         categoryId: categoryId,
-        specialDayId: specialDayId,
+        // specialDayId: specialDayId,
       );
 
       if (mounted) {

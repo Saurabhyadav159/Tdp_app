@@ -104,7 +104,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
               child: Column(
                 children: [
                   const SizedBox(height: 8),
-                  HomeSlider(banners: bannerList),
+                  HomeSlider(banners: bannerList), // This should now work correctly
                   const SizedBox(height: 16),
                 ],
               ),

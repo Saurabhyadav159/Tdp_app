@@ -10,7 +10,6 @@ import '../../dashboard/presentation/dashboard.dart';
 import 'auth_screen.dart';
 import 'login.dart';
 
-
 class OtpScreenLogin extends StatefulWidget {
   final String mobile;
 
@@ -55,7 +54,10 @@ class _OtpScreenLoginState extends State<OtpScreenLogin> {
     }
 
     try {
-      final response = await _apiService.verifyOtp(widget.mobile, otp);
+      // Get the masterAppId from local storage
+      final String masterAppId = await getAppMasterId();
+
+      final response = await _apiService.verifyOtp(widget.mobile, otp, masterAppId);
 
       if (response["token"] != null && response["accountId"] != null) {
         // Save the token and accountId in local storage
@@ -77,6 +79,31 @@ class _OtpScreenLoginState extends State<OtpScreenLogin> {
     }
   }
 
+  Future<void> resendOtp() async {
+    try {
+      // Get the masterAppId from local storage
+      final String masterAppId = await getAppMasterId();
+
+      // Use the existing sendOtp method which already includes masterAppId
+      final response = await _apiService.sendOtp(widget.mobile, masterAppId);
+
+      if (response["message"] == "OTP sent succesfully") {
+        Fluttertoast.showToast(msg: "OTP resent successfully");
+        startResendTimer(); // Start the timer after successful resend
+      } else {
+        Fluttertoast.showToast(msg: "Failed to resend OTP. Please try again.");
+      }
+    } catch (e) {
+      Fluttertoast.showToast(msg: "Failed to resend OTP. Please try again.");
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    startResendTimer(); // Start timer when screen loads
+  }
+
   @override
   void dispose() {
     _timer?.cancel();
@@ -92,7 +119,7 @@ class _OtpScreenLoginState extends State<OtpScreenLogin> {
           onPressed: () {
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(builder: (context) => const LoginScreen()), // Changed to LoginScreen
+              MaterialPageRoute(builder: (context) => const LoginScreen()),
             );
           },
         ),
@@ -123,14 +150,11 @@ class _OtpScreenLoginState extends State<OtpScreenLogin> {
                     GestureDetector(
                       onTap: _isResendDisabled
                           ? null
-                          : () {
-                        startResendTimer();
-                        Fluttertoast.showToast(msg: "OTP resent!");
-                      },
+                          : resendOtp, // Use the resendOtp function
                       child: Text(
                         _isResendDisabled ? "Resend in $_timerSeconds sec" : "Resend OTP",
                         style: TextStyle(
-                          color: Colors.black.withOpacity(0.99),
+                          color: _isResendDisabled ? Colors.grey : Colors.black.withOpacity(0.99),
                           fontSize: 12.0,
                           fontWeight: FontWeight.w400,
                           decoration: TextDecoration.underline,

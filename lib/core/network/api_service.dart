@@ -11,6 +11,7 @@ import '../models/SelfImage.dart';
 import 'api_constants.dart';
 import 'local_storage.dart';
 
+
 class ApiService {
   final Dio _dio = Dio(BaseOptions(
     baseUrl: ApiConstants.baseUrl,
@@ -93,10 +94,18 @@ class ApiService {
     }
 
     try {
-      logger.d("Fetching banners with limit: $limit, offset: $offset");
+      // Get the masterAppId from local storage
+      final String masterAppId = await getAppMasterId();
+
+      logger.d("Fetching banners with limit: $limit, offset: $offset, masterAppId: $masterAppId");
+
       final response = await _dio.get(
         "banner/all",
-        queryParameters: {"limit": limit, "offset": offset},
+        queryParameters: {
+          "limit": limit,
+          "offset": offset,
+          "masterAppId": masterAppId, // Add masterAppId to query parameters
+        },
       );
 
       final List<dynamic> banners = response.data["result"] as List;
@@ -110,13 +119,20 @@ class ApiService {
       }
 
       return banners;
+    } on DioException catch (e) {
+      logger.e("Error fetching banners: $e");
+      if (e.response?.statusCode == 404) {
+        throw Exception("Banners endpoint not found");
+      } else if (e.response?.statusCode == 500) {
+        throw Exception("Server error while fetching banners");
+      } else {
+        throw Exception("Failed to fetch banners. Please try again.");
+      }
     } catch (e) {
-      logger.e("Failed to fetch banners: $e");
-      _handleError(e);
-      return [];
+      logger.e("General error fetching banners: $e");
+      throw Exception("Failed to fetch banners. Please try again.");
     }
   }
-
 
   /// Fetches a list of categories for the user
   Future<List<Category>> fetchCategories() async {
@@ -128,13 +144,32 @@ class ApiService {
       String? token = await getToken();
       if (token == null) throw Exception("Authentication required");
 
+      // 🔹 Always include App Master ID (from local or default)
+      String appMasterId = await getAppMasterId();
+      String? categoryId = await getCategoryId();
+      String? searchCategoryClickId = await getSearchCategoryClickId();
+
+      // 🔹 Add Authorization header
       _dio.options.headers["Authorization"] = "Bearer $token";
-      final response = await _dio.get("category/user/list");
+
+      // 🔹 Query params (optional ones only)
+      final queryParams = {
+        if (categoryId != null) "categoryId": categoryId,
+        if (searchCategoryClickId != null) "searchCategoryClickId": searchCategoryClickId,
+      };
+
+      // 🔹 API Call → appMasterId goes in the path, not query
+      final response = await _dio.get(
+        "category/user/list/$appMasterId",
+        queryParameters: queryParams,
+      );
+
       List<Category> categories = [];
 
       for (var item in response.data["result"]) {
         String id = item["id"];
         String name = item["name"];
+
         List<Poster> posters = (item["poster"] as List).map((poster) {
           SpecialDay? specialDay;
           if (poster["specialDay"] != null) {
@@ -154,7 +189,7 @@ class ApiService {
             specialDay: specialDay,
             isVideo: isVideo,
             videoThumb: poster["videoThumb"],
-            date: poster["date"],  // Added date field
+            date: poster["date"],
           );
         }).toList();
 
@@ -168,23 +203,40 @@ class ApiService {
       return [];
     }
   }
+
+
   /// Fetches notifications for the user
-  Future<List<Map<String, dynamic>>> fetchNotifications({int limit = 10, int offset = 0}) async {
+  Future<List<Map<String, dynamic>>> fetchNotifications({
+    int limit = 10,
+    int offset = 0,
+  }) async {
     if (!await _hasInternetConnection()) {
       throw Exception("No internet connection");
     }
 
     try {
+      // 🔑 Token
       String? token = await getToken();
       if (token == null) throw Exception("Authentication required");
 
-      _dio.options.headers["Authorization"] = "Bearer $token";
-      logger.d("Fetching notifications");
+      // 🔑 App Master ID from local storage (or default fallback)
+      String appMasterId = await getAppMasterId();
 
+      // 🔑 Headers
+      _dio.options.headers["Authorization"] = "Bearer $token";
+
+      logger.d("Fetching notifications for masterAppId: $appMasterId");
+
+      // 🔑 API call → appMasterId in PATH, limit & offset in QUERY
       final response = await _dio.get(
-        "notifications",
-        queryParameters: {"limit": limit, "offset": offset},
+        "notifications/user/$appMasterId",
+        queryParameters: {
+          "limit": limit,
+          "offset": offset,
+        },
       );
+
+      logger.d("Notifications API Response: ${response.data}");
 
       return List<Map<String, dynamic>>.from(response.data["result"]);
     } catch (e) {
@@ -193,6 +245,7 @@ class ApiService {
       return [];
     }
   }
+
 
   /// Fetches the user's profile information
   Future<Map<String, dynamic>> getProfile() async {
@@ -243,7 +296,6 @@ class ApiService {
   /// Fetches posters based on category and special day
   Future<List<Map<String, dynamic>>> fetchPosters({
     required String categoryId,
-    required String specialDayId,
     int limit = 10,
     int offset = 0,
   }) async {
@@ -252,22 +304,33 @@ class ApiService {
     }
 
     try {
+      // 🔑 Load token
       String? token = await getToken();
       if (token == null) throw Exception("Authentication required");
 
-      _dio.options.headers["Authorization"] = "Bearer $token";
-      logger.d("Fetching posters for category: $categoryId");
+      // 🔑 Load mandatory App Master ID
+      String appMasterId = await getAppMasterId();
 
+      // Set headers
+      _dio.options.headers["Authorization"] = "Bearer $token";
+
+      // Build query params (❌ no categoryId here)
+      final queryParams = {
+        "limit": limit,
+        "offset": offset,
+        "masterAppId": appMasterId, // ✅ correct key
+      };
+
+      logger.d("Fetching posters for categoryId: $categoryId with params: $queryParams");
+
+      // API call (categoryId in path, not query)
       final response = await _dio.get(
         "poster/all/$categoryId",
-        queryParameters: {
-          "limit": limit,
-          "offset": offset,
-          "specialDayId": specialDayId,
-        },
+        queryParameters: queryParams,
       );
 
       logger.d("Posters API Response: ${response.data}");
+
       return List<Map<String, dynamic>>.from(response.data["result"]);
     } catch (e) {
       logger.e("Failed to fetch posters: $e");
@@ -276,42 +339,25 @@ class ApiService {
     }
   }
 
+
   /// Registers a new user
-  Future<Map<String, dynamic>> registerUser({
-    required String name,
-    required String phoneNumber,
-    String? email,
-  }) async {
-    try {
-      final response = await _dio.post(
-        'auth/user/register',
-        data: {
-          'name': name,
-          'phoneNumber': phoneNumber,
-          if (email != null && email.isNotEmpty) 'email': email,
-        },
-        options: Options(
-          headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-          },
-        ),
-      );
-      return response.data;
-    } on DioException catch (e) {
-      // Error handling here
-      rethrow;
-    }
-  }
+// In ApiService class, update the registerUser method:
 
 
-  Future<Response> sendOtpForRegistration({required String phoneNumber}) async {
+// In ApiService class, update the OTP methods:
+
+  /// Sends OTP for registration with masterAppId
+  Future<Response> sendOtpForRegistration({required String phoneNumber, required String masterAppId}) async {
     return await _dio.post(
       'auth/phone/otp',
-      data: {'phoneNumber': phoneNumber},
+      data: {
+        'phoneNumber': phoneNumber,
+        'masterAppId': masterAppId, // Add masterAppId to the request
+      },
     );
   }
 
+  /// Verifies OTP for registration
   Future<Response> verifyOtpForRegistration({
     required String phoneNumber,
     required String otp,
@@ -325,6 +371,34 @@ class ApiService {
     );
   }
 
+  /// Registers a new user (updated with masterAppId)
+  Future<Map<String, dynamic>> registerUser({
+    required String name,
+    required String phoneNumber,
+    required String masterAppId,
+    String? email,
+  }) async {
+    try {
+      final response = await _dio.post(
+        'auth/user/register',
+        data: {
+          'name': name,
+          'phoneNumber': phoneNumber,
+          'masterAppId': masterAppId,
+          if (email != null && email.isNotEmpty) 'email': email,
+        },
+        options: Options(
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          },
+        ),
+      );
+      return response.data;
+    } on DioException catch (e) {
+      rethrow;
+    }
+  }
 
   /// Uploads profile image
   Future<bool> uploadProfileImage(File imageFile) async {
@@ -504,16 +578,19 @@ class ApiService {
 
   // In ApiService class to veryfy mobile number when login
 
-  Future<Map<String, dynamic>> sendOtp(String mobile) async {
+  Future<Map<String, dynamic>> sendOtp(String mobile, String masterAppId) async {
     if (!await _hasInternetConnection()) {
       throw Exception("No internet connection");
     }
 
     try {
-      logger.d("Sending OTP to mobile: $mobile");
+      logger.d("Sending OTP to mobile: $mobile with masterAppId: $masterAppId");
       Response response = await _dio.post(
         "auth/user/login",
-        data: {"phoneNumber": mobile},
+        data: {
+          "phoneNumber": mobile,
+          "masterAppId": masterAppId, // Add masterAppId to the request body
+        },
       );
 
       // Checking if the response is successful
@@ -545,13 +622,13 @@ class ApiService {
   }
 
 ///////for login new api
-  Future<Map<String, dynamic>> verifyOtp(String mobile, String otp) async {
+  Future<Map<String, dynamic>> verifyOtp(String mobile, String otp, String masterAppId) async {
     if (!await _hasInternetConnection()) {
       throw Exception("No internet connection");
     }
 
     try {
-      logger.d("Verifying OTP for mobile: $mobile");
+      logger.d("Verifying OTP for mobile: $mobile with masterAppId: $masterAppId");
 
       // Make the POST request to the API
       Response response = await _dio.post(
@@ -559,6 +636,7 @@ class ApiService {
         data: {
           "phoneNumber": mobile, // Send the mobile number and OTP
           "otp": otp,
+          "masterAppId": masterAppId, // Add masterAppId to the request
         },
       );
 
@@ -590,7 +668,6 @@ class ApiService {
       }
     }
   }
-
 
   Future<PageContent> getPageContent(int pageId) async {
     if (!await _hasInternetConnection()) {

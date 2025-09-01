@@ -5,6 +5,7 @@ import 'package:poster/features/auth/presentation/regidtration.dart';
 
 import '../../../constants/app_colors.dart';
 import '../../../core/network/api_service.dart';
+import '../../../core/network/local_storage.dart'; // Import local storage
 import '../../../core/shared_components.dart';
 import 'Otpscreenlogin.dart';
 import 'auth_screen.dart';
@@ -108,7 +109,10 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      final response = await ApiService().sendOtp(mobile);
+      // Get the masterAppId from local storage
+      final String masterAppId = await getAppMasterId();
+
+      final response = await ApiService().sendOtp(mobile, masterAppId); // Pass masterAppId
       if (response["message"] == "OTP sent succesfully") {
         Navigator.push(
           context,
@@ -181,14 +185,14 @@ class _LoginScreenState extends State<LoginScreen> {
                 children: [
                   // Circular App Logo
                   Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                    ),
-                    child: const CircleAvatar(
-                      radius: 30,
-                      backgroundImage: const AssetImage("assets/app_icon.png"),
-                    )
+                      padding: const EdgeInsets.all(8),
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                      ),
+                      child: const CircleAvatar(
+                        radius: 30,
+                        backgroundImage: AssetImage("assets/app_icon.png"),
+                      )
                   ),
                   const SizedBox(height: 20),
 
@@ -220,7 +224,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: ElevatedButton(
                       onPressed: () => getOtp(context),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.accentRed,
+                        backgroundColor: AppColors.accentOrange,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
