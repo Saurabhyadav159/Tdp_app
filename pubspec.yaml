@@ -17,7 +17,7 @@ dependencies:
   connectivity_plus: ^5.0.2
   flutter_colorpicker: ^1.0.3
   cupertino_icons: ^1.0.8
-  flutter_native_splash: ^2.4.1
+  flutter_native_splash: ^2.4.6
   flutter_svg: ^2.0.9
   shared_preferences: ^2.3.3
   provider: ^6.1.2
@@ -63,21 +63,45 @@ flutter:
     - assets/images/
     - assets/lottie/success.json
 
+#flutter_launcher_icons:
+#  android: "launcher_icon"
+#  ios: true
+#  image_path: "assets/app_icon.png"
+#  adaptive_icon_background: "#FFEF8C" # Yellow
+#
+## ✅ Splash screen configuration
+#flutter_native_splash:
+#  color: "#FFEF8C" # Yellow for all platforms
+#  image: "assets/app_icon.png"
+#  android: true
+#  ios: true
+#  web: false
+#  android_12:
+#    color: "#FFEF8C" # Yellow for Android 12 too
+#    image: "assets/app_icon.png"
+#    icon_background_color: "#FFEF8C"
+#
+
+
+
+# ✅ App launcher icon configuration
+# App Icon
 flutter_launcher_icons:
   android: "launcher_icon"
   ios: true
-  image_path: "assets/app_icon.png"
-  adaptive_icon_background: "#FFEF8C" # Yellow
+  image_path: null
+  adaptive_icon_background: "#FFEF8C"
 
-# ✅ Splash screen configuration
+# Splash screen configuration
 flutter_native_splash:
-  color: "#FFEF8C" # Yellow for all platforms
-  image: "assets/app_icon.png"
+  color: "#FFEF8C"   # Orange background
   android: true
   ios: true
   web: false
+  image: null  # 👈 shows on Android ≤ 11 + iOS
+
   android_12:
-    color: "#FFEF8C" # Yellow for Android 12 too
-    image: "assets/app_icon.png"
-    icon_background_color: "#FFEF8C"
+    color: "#FFEF8C"                 # Background color for Android 12+
+    icon_background_color: "#FFEF8C"  # Must match background
+    image: null # 👈 force logo on Android 12+
 

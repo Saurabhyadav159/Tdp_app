@@ -148,29 +148,86 @@ class _CategoryHighlightDisplayState extends State<CategoryHighlightDisplay> {
   }
 
   Future<void> _handlePosterTap(Poster poster) async {
+    // Log all poster details before navigation
+    print("══════════════════════════════════════════════════════════════");
+    print("🎬 POSTER TAPPED - NAVIGATION STARTED");
+    print("══════════════════════════════════════════════════════════════");
+    print("📋 POSTER DETAILS:");
+    print("   • ID: ${poster.id}");
+    print("   • Poster URL: ${poster.posterUrl}");
+    print("   • Is Video: ${poster.isVideo}");
+    print("   • Position: ${poster.position}");
+    print("   • TopDefNum: ${poster.topDefNum}");
+    print("   • SelfDefNum: ${poster.selfDefNum}");
+    print("   • BottomDefNum: ${poster.bottomDefNum}");
+    print("   • Date: ${poster.date}");
+    print("   • Video Thumbnail: ${poster.videoThumb}");
+
+    if (poster.specialDay != null) {
+      print("   • Special Day: ${poster.specialDay!.name}");
+      print("   • Special Month: ${poster.specialDay!.month}");
+      print("   • Special Day Number: ${poster.specialDay!.day}");
+    } else {
+      print("   • Special Day: null");
+    }
+
+    print("📋 CATEGORY DETAILS:");
+    print("   • Category ID: ${widget.category.id}");
+    print("   • Category Name: ${widget.category.name}");
+    print("   • Total Posters in Category: ${widget.category.posters.length}");
+
     if (poster.isVideo) {
+      print("🚀 NAVIGATING TO: VideoEditorPage");
+      print("   • Video URL: ${poster.posterUrl ?? ""}");
+
       await Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => VideoEditorPage(videoUrl: poster.posterUrl ?? ""),
+          builder: (_) => VideoEditorPage(
+            videoUrl: poster.posterUrl ?? "",
+            // Pass position information to VideoEditorPage
+            initialPosition: poster.position ?? "RIGHT",
+            topDefNum: poster.topDefNum ?? 0, // Provide default value if null
+            selfDefNum: poster.selfDefNum ?? 0, // Provide default value if null
+            bottomDefNum: poster.bottomDefNum ?? 0, // Provide default value if null
+          ),
         ),
       );
+
+      print("✅ RETURNED FROM: VideoEditorPage");
     } else {
-      print("Navigating to SocialMediaDetailsPage with poster position: ${poster.position}");
+      print("🚀 NAVIGATING TO: SocialMediaDetailsPage");
+      print("📤 SENDING DATA:");
+      print("   • Asset Path: ${poster.posterUrl ?? ""}");
+      print("   • Category ID: ${widget.category.id}");
+      print("   • Initial Position: ${poster.position ?? " "}");
+      print("   • Poster ID: ${poster.id}");
+      print("   • TopDefNum: ${poster.topDefNum}");
+      print("   • SelfDefNum: ${poster.selfDefNum}");
+      print("   • BottomDefNum: ${poster.bottomDefNum}");
+
       await Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => SocialMediaDetailsPage(
             assetPath: poster.posterUrl ?? "",
             categoryId: widget.category.id,
-            initialPosition: poster.position,
+            initialPosition: poster.position ?? "RIGHT",
             posterId: poster.id,
+            topDefNum: poster.topDefNum,
+            selfDefNum: poster.selfDefNum,
+            bottomDefNum: poster.bottomDefNum,
           ),
         ),
       );
-    }
-  }
 
+      print("✅ RETURNED FROM: SocialMediaDetailsPage");
+    }
+
+    print("══════════════════════════════════════════════════════════════");
+    print("🎬 NAVIGATION COMPLETED");
+    print("══════════════════════════════════════════════════════════════");
+  }
 
   String _getDisplayDate(Poster poster) {
     if (poster.specialDay != null) {

@@ -5,7 +5,7 @@ import 'package:poster/features/auth/presentation/regidtration.dart';
 
 import '../../../constants/app_colors.dart';
 import '../../../core/network/api_service.dart';
-import '../../../core/network/local_storage.dart'; // Import local storage
+import '../../../core/network/local_storage.dart';
 import '../../../core/shared_components.dart';
 import 'Otpscreenlogin.dart';
 import 'auth_screen.dart';
@@ -23,10 +23,12 @@ class _LoginScreenState extends State<LoginScreen> {
   final Connectivity _connectivity = Connectivity();
   String? _mobileError;
   bool _isLoading = false;
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void dispose() {
     _mobileController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -106,13 +108,14 @@ class _LoginScreenState extends State<LoginScreen> {
 
     setState(() {
       _isLoading = true;
+      _mobileError = null;
     });
 
     try {
       // Get the masterAppId from local storage
       final String masterAppId = await getAppMasterId();
 
-      final response = await ApiService().sendOtp(mobile, masterAppId); // Pass masterAppId
+      final response = await ApiService().sendOtp(mobile, masterAppId);
       if (response["message"] == "OTP sent succesfully") {
         Navigator.push(
           context,
@@ -129,6 +132,15 @@ class _LoginScreenState extends State<LoginScreen> {
         _isLoading = false;
         _mobileError = "Account not found, Please register first!";
       });
+
+      // Scroll to show the error message
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      });
     }
   }
 
@@ -140,7 +152,7 @@ class _LoginScreenState extends State<LoginScreen> {
         children: [
           // Top Purple Curved Background
           Container(
-            height: 420,
+            height: 320, // Reduced height to prevent overlap
             decoration: const BoxDecoration(
               color: AppColors.accentOrange,
               borderRadius: BorderRadius.only(
@@ -150,7 +162,7 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
             child: const Center(
               child: Padding(
-                padding: EdgeInsets.only(top: 80.0),
+                padding: EdgeInsets.only(top: 60.0),
                 child: Text(
                   'Welcome',
                   style: TextStyle(
@@ -163,114 +175,128 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
 
-          // Main White Card
-          Align(
-            alignment: Alignment.center,
-            child: Container(
-              margin: const EdgeInsets.only(top: 180),
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Colors.black12,
-                    blurRadius: 10,
-                  )
-                ],
-              ),
-              width: MediaQuery.of(context).size.width * 0.85,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Circular App Logo
-                  Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                      ),
-                      child: const CircleAvatar(
-                        radius: 30,
-                        backgroundImage: AssetImage("assets/app_icon.png"),
+          // Scrollable Content
+          SingleChildScrollView(
+            controller: _scrollController,
+            padding: const EdgeInsets.only(top: 150), // Adjusted top padding
+            child: Column(
+              children: [
+                // Main White Card
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 20),
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Colors.black12,
+                        blurRadius: 10,
+                        offset: Offset(0, 4),
                       )
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Mobile Number Field
-                  AuthTextField(
-                    "Enter your mobile number",
-                    iconName: "assets/phone.png",
-                    controller: _mobileController,
-                    keyboardType: TextInputType.phone,
-                    inputFormatters: [
-                      LengthLimitingTextInputFormatter(10),
                     ],
                   ),
-
-                  if (_mobileError != null)
-                    Padding(
-                      padding: const EdgeInsets.only(left: 8.0, top: 4.0),
-                      child: Text(
-                        _mobileError!,
-                        style: const TextStyle(color: Colors.red, fontSize: 12.0),
-                      ),
-                    ),
-
-                  const SizedBox(height: 24.0),
-
-                  // Get OTP Button
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () => getOtp(context),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.accentOrange,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Circular App Logo
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
                         ),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      child: _isLoading
-                          ? const CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 2.0,
-                      )
-                          : const Text(
-                        "Get OTP",
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.white,
+                        child: const CircleAvatar(
+                          radius: 30,
+                          backgroundImage: AssetImage("assets/app_icon.png"),
                         ),
                       ),
-                    ),
-                  ),
+                      const SizedBox(height: 20),
 
-                  const SizedBox(height: 16),
-
-                  // Create Account Button
-                  TextButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => RegistrationScreen()),
-                      );
-                    },
-                    style: TextButton.styleFrom(
-                      padding: EdgeInsets.zero,
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    child: const Text(
-                      "Create Account",
-                      style: TextStyle(
-                        fontSize: 14.0,
-                        color: Colors.black,
-                        decoration: TextDecoration.underline,
+                      // Mobile Number Field
+                      AuthTextField(
+                        "Enter your mobile number",
+                        iconName: "assets/phone.png",
+                        controller: _mobileController,
+                        keyboardType: TextInputType.phone,
+                        inputFormatters: [
+                          LengthLimitingTextInputFormatter(10),
+                        ],
                       ),
-                    ),
+
+                      if (_mobileError != null)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 8.0, top: 8.0, bottom: 8.0),
+                          child: Text(
+                            _mobileError!,
+                            style: const TextStyle(
+                              color: Colors.red,
+                              fontSize: 12.0,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+
+                      const SizedBox(height: 20),
+
+                      // Get OTP Button
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () => getOtp(context),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.accentRed,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                          ),
+                          child: _isLoading
+                              ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2.0,
+                            ),
+                          )
+                              : const Text(
+                            "Get OTP",
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // Create Account Button
+                      TextButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => RegistrationScreen()),
+                          );
+                        },
+                        child: const Text(
+                          "Create Account",
+                          style: TextStyle(
+                            fontSize: 14.0,
+                            color: Colors.black,
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+
+                // Add some bottom spacing to ensure content doesn't get cut off
+                const SizedBox(height: 40),
+              ],
             ),
           ),
         ],

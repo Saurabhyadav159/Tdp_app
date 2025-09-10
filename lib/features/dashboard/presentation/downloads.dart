@@ -60,7 +60,11 @@ class _FileSelectionScreenState extends State<FileSelectionScreen> {
         banners = results.map((poster) => {
           "posterUrl": poster["poster"].toString(),
           "id": poster["id"].toString(),
-          "categoryId": poster["categoryId"]?.toString() ?? "" // Assuming API returns categoryId
+          "categoryId": poster["categoryId"]?.toString() ?? "",
+          "position": poster["position"]?.toString() ?? "RIGHT",
+          "topDefNum": poster["topDefNum"],
+          "selfDefNum": poster["selfDefNum"],
+          "bottomDefNum": poster["bottomDefNum"],
         }).toList();
         isLoading = false;
       });
@@ -78,6 +82,14 @@ class _FileSelectionScreenState extends State<FileSelectionScreen> {
         showErrorPopup(context, "Failed to fetch banners. Please try again.", fetchBanners);
       }
     }
+  }
+
+  // Helper method to safely parse integers from dynamic values
+  int? _parseIntSafely(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value);
+    return null;
   }
 
   @override
@@ -114,6 +126,11 @@ class _FileSelectionScreenState extends State<FileSelectionScreen> {
                         assetPath: poster["posterUrl"],
                         categoryId: poster["categoryId"],
                         posterId: poster["id"],
+                        // Add the missing fields here
+                        initialPosition: poster["position"] ?? "RIGHT",
+                        topDefNum: _parseIntSafely(poster["topDefNum"]),
+                        selfDefNum: _parseIntSafely(poster["selfDefNum"]),
+                        bottomDefNum: _parseIntSafely(poster["bottomDefNum"]),
                       ),
                     ),
                   );

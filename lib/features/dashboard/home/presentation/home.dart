@@ -2,9 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shimmer/shimmer.dart';
 
+import '../../../../core/models/TodaySpecial.dart';
 import '../../../../core/network/api_service.dart';
 import '../../../category/domain/category.dart';
+import '../../../category/presentation/AllTodaySpecialPage.dart';
 import '../../../category/presentation/Allbannershowpage.dart';
+import '../../../category/presentation/TodaySpecialSection.dart';
+import '../../../category/presentation/edit_banner_screen.dart';
 import '../../presentation/VideoPlayerPopup.dart';
 import 'category_highlight.dart';
 import 'home_slider.dart';
@@ -20,6 +24,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMixin {
   List<Category> allCategories = [];
   List<dynamic> bannerList = [];
+  List<TodaySpecial> todaySpecialList = [];
   bool _isLoading = true;
   bool _hasError = false;
   bool _initialLoadComplete = false;
@@ -48,11 +53,13 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       final results = await Future.wait([
         apiService.fetchCategories(),
         apiService.getBanners(context: context, limit: 10, offset: 0),
+        _fetchTodaySpecial(apiService),
       ]);
 
       setState(() {
         allCategories = results[0] as List<Category>;
         bannerList = results[1] as List<dynamic>;
+        todaySpecialList = results[2] as List<TodaySpecial>;
         _isLoading = false;
         _initialLoadComplete = true;
       });
@@ -63,6 +70,27 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
         _hasError = true;
       });
     }
+  }
+
+  Future<List<TodaySpecial>> _fetchTodaySpecial(ApiService apiService) async {
+    try {
+      final response = await apiService.fetchTodaySpecial();
+      return response;
+    } catch (e) {
+      debugPrint("Error fetching today's special: $e");
+      return [];
+    }
+  }
+
+  void _handleViewAllTodaySpecial() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AllTodaySpecialPage(
+          todaySpecialList: todaySpecialList,
+        ),
+      ),
+    );
   }
 
   Widget _buildErrorWidget() {
@@ -104,8 +132,30 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
               child: Column(
                 children: [
                   const SizedBox(height: 8),
-                  HomeSlider(banners: bannerList), // This should now work correctly
+                  HomeSlider(banners: bannerList),
                   const SizedBox(height: 16),
+                  // Only show Today's Special if there's data
+                  if (todaySpecialList.isNotEmpty)
+                    TodaySpecialSection(
+                      todaySpecialList: todaySpecialList,
+                      onViewAll: _handleViewAllTodaySpecial,
+                      onItemTap: (todaySpecial) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => SocialMediaDetailsPage(
+                              assetPath: todaySpecial.poster,
+                              categoryId: "",
+                              initialPosition: todaySpecial.position ?? "RIGHT",
+                              posterId: todaySpecial.id,
+                              topDefNum: todaySpecial.topDefNum,
+                              selfDefNum: todaySpecial.selfDefNum,
+                              bottomDefNum: todaySpecial.bottomDefNum,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                 ],
               ),
             ),
@@ -152,6 +202,63 @@ class _HomeShimmer extends StatelessWidget {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        // Add shimmer for Today's Special section
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Shimmer.fromColors(
+                baseColor: Colors.grey.shade300,
+                highlightColor: Colors.grey.shade100,
+                child: Container(
+                  width: 120,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ),
+              Shimmer.fromColors(
+                baseColor: Colors.grey.shade300,
+                highlightColor: Colors.grey.shade100,
+                child: Container(
+                  width: 60,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        Shimmer.fromColors(
+          baseColor: Colors.grey.shade300,
+          highlightColor: Colors.grey.shade100,
+          child: SizedBox(
+            height: 180,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 12.0),
+              children: List.generate(
+                4,
+                    (index) => Container(
+                  width: 120,
+                  margin: const EdgeInsets.symmetric(horizontal: 4.0),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
             ),
           ),
         ),

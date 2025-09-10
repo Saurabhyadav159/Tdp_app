@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/services.dart';
@@ -21,6 +22,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   bool _isPhoneVerified = false;
   bool _showVerifyButton = false;
   bool _isSendingOtp = false;
+  bool _otpVerified = false; // Track if OTP is verified but not yet registered
+
+  bool _isOtpDialogOpen = false; // Only one dialog at a time
 
   @override
   void initState() {
@@ -40,31 +44,32 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     });
   }
 
-  Future<void> _sendOtp() async {
-    if (_phoneController.text.length != 10) return;
+  Future<bool> _sendOtp({bool isResend = false}) async {
+    if (_phoneController.text.length != 10) return false;
 
     setState(() => _isSendingOtp = true);
 
     try {
-      // Get the default app master ID
       final String masterAppId = await getAppMasterId();
-
       ApiService apiService = ApiService();
       final response = await apiService.sendOtpForRegistration(
         phoneNumber: _phoneController.text.trim(),
-        masterAppId: masterAppId, // Pass masterAppId to OTP request
+        masterAppId: masterAppId,
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(
-              response.data['message'] ?? 'OTP sent successfully')),
+          SnackBar(content: Text(response.data['message'] ?? 'OTP sent successfully')),
         );
-        _showOtpDialog();
+        if (!isResend) {
+          _showOtpDialog();
+        }
+        return true;
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Failed to send OTP")),
         );
+        return false;
       }
     } on DioException catch (e) {
       String errorMessage = "Failed to send OTP";
@@ -80,62 +85,109 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(errorMessage)),
       );
+      return false;
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Error: ${e.toString()}")),
       );
+      return false;
     } finally {
       setState(() => _isSendingOtp = false);
     }
   }
 
   void _showOtpDialog() {
+    if (_isOtpDialogOpen) {
+      return;
+    }
+    _isOtpDialogOpen = true;
+
+    int _resendSeconds = 30;
+    late StateSetter dialogState;
+    Timer? _resendTimer;
+
+    void startResendTimer() {
+      _resendSeconds = 30;
+      _resendTimer?.cancel();
+      _resendTimer = Timer.periodic(Duration(seconds: 1), (timer) {
+        if (_resendSeconds <= 0) {
+          timer.cancel();
+        } else {
+          dialogState(() {
+            _resendSeconds--;
+          });
+        }
+      });
+    }
+
+    startResendTimer();
+
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: Text("Verify OTP"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text("Enter 6-digit OTP sent to ${_phoneController.text}"),
-            SizedBox(height: 20),
-            TextFormField(
-              controller: _otpController,
-              keyboardType: TextInputType.number,
-              maxLength: 6,
-              decoration: InputDecoration(
-                labelText: "OTP",
-                border: OutlineInputBorder(),
-                counterText: "",
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            dialogState = setState;
+            return AlertDialog(
+              title: Text("Verify OTP"),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text("Enter 6-digit OTP sent to ${_phoneController.text}"),
+                  SizedBox(height: 20),
+                  TextFormField(
+                    controller: _otpController,
+                    keyboardType: TextInputType.number,
+                    maxLength: 6,
+                    decoration: InputDecoration(
+                      labelText: "OTP",
+                      border: OutlineInputBorder(),
+                      counterText: "",
+                    ),
+                  ),
+                  SizedBox(height: 16),
+                  _resendSeconds == 0
+                      ? TextButton(
+                    onPressed: () async {
+                      bool success = await _sendOtp(isResend: true);
+                      if (success) {
+                        setState(() => _resendSeconds = 30);
+                        startResendTimer();
+                      }
+                      // On fail, do not reset timer, allow retry immediately
+                    },
+                    child: Text("Resend OTP"),
+                  )
+                      : Text("Resend OTP in $_resendSeconds sec"),
+                ],
               ),
-              onChanged: (value) {
-                // Auto-submit when 6 digits are entered
-                if (value.length == 6) {
-                  _verifyOtp();
-                }
-              },
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text("Cancel"),
-          ),
-          ElevatedButton(
-            onPressed: _verifyOtp,
-            child: Text("Verify"),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: SharedColors.primary,
-              foregroundColor: Colors.white,
-            ),
-          ),
-        ],
-      ),
-    );
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    _resendTimer?.cancel();
+                    Navigator.pop(context);
+                    _isOtpDialogOpen = false;
+                  },
+                  child: Text("Cancel"),
+                ),
+                ElevatedButton(
+                  onPressed: _verifyOtp,
+                  child: Text("Verify"),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: SharedColors.primary,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    ).then((_) {
+      _isOtpDialogOpen = false;
+    });
   }
-
   Future<void> _verifyOtp() async {
     if (_otpController.text.length != 6) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -156,12 +208,17 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       if (response.statusCode == 200 || response.statusCode == 201) {
         setState(() {
           _isPhoneVerified = true;
+          _otpVerified = true;
+          _showVerifyButton = false;
         });
-        Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(
-              response.data['message'] ?? 'OTP verified successfully')),
+          SnackBar(content: Text(response.data['message'] ?? 'OTP verified successfully')),
         );
+        // Close the OTP dialog popup after successful verification
+        if (_isOtpDialogOpen) {
+          Navigator.pop(context);
+          _isOtpDialogOpen = false;
+        }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("OTP verification failed")),
@@ -175,7 +232,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         } else if (e.response?.statusCode == 410) {
           errorMessage = e.response?.data?['message'] ?? "OTP expired";
         } else {
-          errorMessage += ": ${e.response?.data?['message'] ?? e.response?.statusMessage ?? 'Invalid OTP'}";
+          errorMessage +=
+          ": ${e.response?.data?['message'] ?? e.response?.statusMessage ?? 'Invalid OTP'}";
         }
       }
       ScaffoldMessenger.of(context).showSnackBar(
@@ -190,6 +248,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     }
   }
 
+
+
   void _registerUser() async {
     if (!_isPhoneVerified) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -202,9 +262,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       setState(() => _isLoading = true);
 
       try {
-        // Get the default app master ID
         final String masterAppId = await getAppMasterId();
-
         ApiService apiService = ApiService();
         final response = await apiService.registerUser(
           name: _nameController.text.trim(),
@@ -219,7 +277,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text("Registration Successful!")),
           );
-          Navigator.pop(context);
+          Navigator.pop(context); // Navigate only here on explicit Register button press
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text("Registration failed: ${response['message']}")),
@@ -244,6 +302,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     }
   }
 
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -263,20 +322,14 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                     backgroundColor: Colors.transparent,
                     backgroundImage: AssetImage("assets/app_icon.png"),
                   ),
-
                   const SizedBox(height: 30),
-
-                  /// Name Field
                   _buildTextField(
                     controller: _nameController,
                     label: "Enter Name*",
                     icon: Icons.person,
                     validator: (value) => value!.isEmpty ? "Name is required" : null,
                   ),
-
                   const SizedBox(height: 15),
-
-                  /// Email Field
                   _buildTextField(
                     controller: _emailController,
                     label: "Enter Email *",
@@ -289,10 +342,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                       return null;
                     },
                   ),
-
                   const SizedBox(height: 15),
-
-                  /// Phone Number Field with Verify Button
                   Row(
                     children: [
                       Expanded(
@@ -339,10 +389,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                         ),
                     ],
                   ),
-
                   const SizedBox(height: 20),
-
-                  /// Register Button
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
@@ -358,7 +405,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                       child: _isLoading
                           ? const CircularProgressIndicator(color: Colors.white)
                           : Text(
-                        _isPhoneVerified ? "Register" : "Verify OTP to Register",
+                        _isPhoneVerified ? "Register Now" : "Verify OTP to Register",
                         style: TextStyle(
                           fontSize: 16,
                           color: Colors.white,
@@ -368,8 +415,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                     ),
                   ),
                   const SizedBox(height: 20),
-
-                  /// Navigation to Login
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [

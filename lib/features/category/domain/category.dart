@@ -13,7 +13,10 @@ class Poster {
   final String? videoThumb;
   final bool isVideo;
   final String? date;
-  final String? position; // <-- position field added
+  final String? position;
+  final int? topDefNum;
+  final int? selfDefNum;
+  final int? bottomDefNum;
 
   Poster({
     required this.id,
@@ -22,8 +25,12 @@ class Poster {
     this.videoThumb,
     required this.isVideo,
     this.date,
-    this.position, // <-- added to constructor
+    this.position,
+    this.topDefNum,
+    this.selfDefNum,
+    this.bottomDefNum,
   });
+
 }
 
 class SpecialDay {

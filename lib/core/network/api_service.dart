@@ -8,9 +8,9 @@ import '../../features/dashboard/presentation/PageContentScreen .dart';
 import '../models/FooterImage.dart';
 import '../models/ProtocolImage.dart';
 import '../models/SelfImage.dart';
+import '../models/TodaySpecial.dart';
 import 'api_constants.dart';
 import 'local_storage.dart';
-
 
 class ApiService {
   final Dio _dio = Dio(BaseOptions(
@@ -144,52 +144,56 @@ class ApiService {
       String? token = await getToken();
       if (token == null) throw Exception("Authentication required");
 
-      // 🔹 Always include App Master ID (from local or default)
       String appMasterId = await getAppMasterId();
       String? categoryId = await getCategoryId();
       String? searchCategoryClickId = await getSearchCategoryClickId();
 
-      // 🔹 Add Authorization header
       _dio.options.headers["Authorization"] = "Bearer $token";
 
-      // 🔹 Query params (optional ones only)
       final queryParams = {
         if (categoryId != null) "categoryId": categoryId,
         if (searchCategoryClickId != null) "searchCategoryClickId": searchCategoryClickId,
       };
 
-      // 🔹 API Call → appMasterId goes in the path, not query
       final response = await _dio.get(
         "category/user/list/$appMasterId",
         queryParameters: queryParams,
       );
-
+      print("📦 RAW API RESPONSE:");
+      print(response.data);
+      print("══════════════════════════════════════════════════════════════");
       List<Category> categories = [];
 
       for (var item in response.data["result"]) {
         String id = item["id"];
         String name = item["name"];
 
-        List<Poster> posters = (item["poster"] as List).map((poster) {
+        List<Poster> posters = (item["poster"] as List).map((posterData) {
+          // Parse specialDay if it exists
           SpecialDay? specialDay;
-          if (poster["specialDay"] != null) {
+          if (posterData["specialDay"] != null) {
             specialDay = SpecialDay(
-              name: poster["specialDay"]["name"],
-              month: poster["specialDay"]["month"],
-              day: poster["specialDay"]["day"],
+              name: posterData["specialDay"]["name"] ?? "",
+              month: posterData["specialDay"]["month"] ?? "",
+              day: posterData["specialDay"]["day"] ?? "",
             );
           }
 
-          bool isVideo = poster["poster"].toLowerCase().endsWith('.mp4') ||
-              poster["poster"].toLowerCase().endsWith('.mov');
+          bool isVideo = (posterData["poster"]?.toString().toLowerCase().endsWith('.mp4') ?? false) ||
+              (posterData["poster"]?.toString().toLowerCase().endsWith('.mov') ?? false);
 
+          // Handle null values properly with null coalescing
           return Poster(
-            id: poster["id"],
-            posterUrl: poster["poster"],
+            id: posterData["id"]?.toString() ?? "",
+            posterUrl: posterData["poster"]?.toString() ?? "",
             specialDay: specialDay,
             isVideo: isVideo,
-            videoThumb: poster["videoThumb"],
-            date: poster["date"],
+            videoThumb: posterData["videoThumb"]?.toString(),
+            date: posterData["date"]?.toString(),
+            position: posterData["position"]?.toString(),
+            topDefNum: _parseIntSafely(posterData["topDefNum"]),
+            selfDefNum: _parseIntSafely(posterData["selfDefNum"]),
+            bottomDefNum: _parseIntSafely(posterData["bottomDefNum"]),
           );
         }).toList();
 
@@ -204,6 +208,13 @@ class ApiService {
     }
   }
 
+// Helper method to safely parse integers from dynamic values
+  int? _parseIntSafely(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value);
+    return null;
+  }
 
   /// Fetches notifications for the user
   Future<List<Map<String, dynamic>>> fetchNotifications({
@@ -810,4 +821,42 @@ class ApiService {
         .toList();
   }
 
+
+
+
+
+
+
+  // In your ApiService class, add this method:
+  Future<List<TodaySpecial>> fetchTodaySpecial() async {
+    if (!await _hasInternetConnection()) {
+      throw Exception("No internet connection");
+    }
+
+    try {
+      String? token = await getToken();
+      if (token == null) throw Exception("Authentication required");
+
+      String appMasterId = await getAppMasterId();
+
+      _dio.options.headers["Authorization"] = "Bearer $token";
+      logger.d("Fetching today's special for masterAppId: $appMasterId");
+
+      final response = await _dio.get(
+        "poster/today-special/$appMasterId",
+      );
+
+      logger.d("Today's Special API Response: ${response.data}");
+
+      List<TodaySpecial> todaySpecialList = (response.data["result"] as List)
+          .map((item) => TodaySpecial.fromJson(item))
+          .toList();
+
+      return todaySpecialList;
+    } catch (e) {
+      logger.e("Failed to fetch today's special: $e");
+      _handleError(e);
+      return [];
+    }
+  }
 }

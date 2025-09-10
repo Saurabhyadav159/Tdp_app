@@ -66,6 +66,14 @@ class _SecretScreenState extends State<SecretScreen> {
     }
   }
 
+  // Helper method to safely parse integers from dynamic values
+  int? _parseIntSafely(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value);
+    return null;
+  }
+
   void showErrorPopup(BuildContext context, String message, VoidCallback onRetry) {
     showDialog(
       context: context,
@@ -188,6 +196,11 @@ class _SecretScreenState extends State<SecretScreen> {
                           assetPath: imageUrl,
                           categoryId: poster["categoryId"] ?? "", // Add category ID
                           posterId: poster["id"] ?? "",         // Add poster ID
+                          // Add the missing fields here
+                          initialPosition: poster["position"] ?? "RIGHT",
+                          topDefNum: _parseIntSafely(poster["topDefNum"]),
+                          selfDefNum: _parseIntSafely(poster["selfDefNum"]),
+                          bottomDefNum: _parseIntSafely(poster["bottomDefNum"]),
                         ),
                       ),
                     );

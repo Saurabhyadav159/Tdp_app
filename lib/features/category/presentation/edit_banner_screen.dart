@@ -1770,19 +1770,26 @@ import '../../../core/models/ProtocolImage.dart';
 import '../../../core/models/SelfImage.dart';
 import '../../../core/network/api_service.dart';
 
+// Update the constructor of SocialMediaDetailsPage
 class SocialMediaDetailsPage extends StatefulWidget {
   final String assetPath;
   final String categoryId;
   final String posterId;
-  final String? initialPosition;
+  final String initialPosition;
+  final int? topDefNum;
+  final int? selfDefNum;
+  final int? bottomDefNum;
+
   const SocialMediaDetailsPage({
-    super.key,
+    Key? key,
     required this.assetPath,
     required this.categoryId,
     required this.posterId,
-    this.initialPosition,
-
-  });
+    required this.initialPosition,
+    this.topDefNum,
+    this.selfDefNum,
+    this.bottomDefNum,
+  }) : super(key: key);
 
   @override
   _SocialMediaDetailsPageState createState() => _SocialMediaDetailsPageState();
@@ -1790,6 +1797,10 @@ class SocialMediaDetailsPage extends StatefulWidget {
 
 class _SocialMediaDetailsPageState extends State<SocialMediaDetailsPage> {
   static const int _maxVisibleUploads = 4;
+  late int topNum;
+  late int selfNum;
+  late int bottomNum;
+
   File? _selectedImage;
   File? _topBannerImage;
   File? _generatedImage;
@@ -1811,14 +1822,18 @@ class _SocialMediaDetailsPageState extends State<SocialMediaDetailsPage> {
   String? _selectedApiImageUrl;
   String? _selectedProtocolImageUrl;
   String? _selectedPosition = 'right'; // Default to right position
-
   int _positionVersion = 0;
+  // Add these variables to your state class
+  SelfImage? _selectedSelfImage;
+  Set<String> _selectedSelfImageUrls = Set<String>();
+
   void _updatePosition(String position) {
     setState(() {
       _selectedPosition = position.trim().toLowerCase();
       _positionVersion++;
     });
   }
+
   List<ProtocolImage> _protocolImages = [];
   List<FooterImage> _footerImages = [];
   File? _selectedLocalImage;
@@ -1840,25 +1855,69 @@ class _SocialMediaDetailsPageState extends State<SocialMediaDetailsPage> {
   List<SelfImage> _apiSelfImages = [];
   String? _selectedAssetImage;
   File? _selectedUploadedImage;
+  List<SelfImage> _filteredSelfImages = [];
+
 
   @override
   void initState() {
     super.initState();
+
+    // Initialize with proper fallback values
+    topNum = widget.topDefNum ?? 1; // Default to 1 if null
+    selfNum = widget.selfDefNum ?? 1; // Default to 1 if null
+    bottomNum = widget.bottomDefNum ?? 1; // Default to 1 if null
+
+    print('Received initialPosition: ${widget.initialPosition}');
+    print('Received topDefNum: $topNum');
+    print('Received selfDefNum: $selfNum');
+    print('Received bottomDefNum: $bottomNum');
+
     _fetchUserProfile();
     _loadApiSelfImages();
     _loadProtocolImages();
     _loadFooterImages();
-    print('Received initialPosition: ${widget.initialPosition}');
   }
+
+
+
 
   Future<void> _loadFooterImages() async {
     try {
       final images = await ApiService().fetchFooterImages();
       setState(() {
         _footerImages = images;
+
+        if (images.isEmpty) {
+          _selectedFooterImageUrl = null;
+          print('No footer images available');
+          return;
+        }
+
+        // Filter based on defNum value
+        if (bottomNum > 0) {
+          try {
+            // Find image with exact defNum match
+            final matchingImage = images.firstWhere(
+                  (image) => image.defNum == bottomNum,
+            );
+            _selectedFooterImageUrl = matchingImage.imageUrl;
+            print('Selected footer image with defNum: $bottomNum');
+          } catch (e) {
+            // If no exact match found, use first image as fallback
+            print('No footer image found with defNum $bottomNum, using first image');
+            _selectedFooterImageUrl = images[0].imageUrl;
+          }
+        } else {
+          // Use first image if no specific bottomNum requested
+          _selectedFooterImageUrl = images[0].imageUrl;
+          print('Using first footer image (no specific defNum requested)');
+        }
       });
     } catch (e) {
-      // Handle error (show snackbar, etc.)
+      print('Error loading footer images: $e');
+      setState(() {
+        _selectedFooterImageUrl = null;
+      });
     }
   }
 
@@ -1867,21 +1926,110 @@ class _SocialMediaDetailsPageState extends State<SocialMediaDetailsPage> {
       final images = await ApiService().fetchProtocolImages();
       setState(() {
         _protocolImages = images;
+
+        if (images.isEmpty) {
+          _selectedProtocolImageUrl = null;
+          return;
+        }
+
+        // Filter based on defNum value
+        if (widget.topDefNum != null && widget.topDefNum! > 0) {
+          try {
+            // Find image with exact defNum match
+            final matchingImage = images.firstWhere(
+                  (image) => image.defNum == widget.topDefNum,
+            );
+            _selectedProtocolImageUrl = matchingImage.imageUrl;
+          } catch (e) {
+            // If no exact match found, use first image as fallback
+            print('No image found with defNum ${widget.topDefNum}, using first image');
+            _selectedProtocolImageUrl = images[0].imageUrl;
+          }
+        } else {
+          // Use first image if no specific defNum requested
+          _selectedProtocolImageUrl = images[0].imageUrl;
+        }
       });
     } catch (e) {
-      // Optionally handle error
       print('Error loading protocol images: $e');
+      setState(() {
+        _selectedProtocolImageUrl = null;
+      });
     }
   }
+
 
   Future<void> _loadApiSelfImages() async {
     try {
       final images = await ApiService().fetchSelfImages();
+
+      // Filter images based on initialPosition
+      List<SelfImage> filteredImages = [];
+      if (widget.initialPosition.isNotEmpty) {
+        final position = widget.initialPosition.toLowerCase().trim();
+
+        // Only filter if position is specifically 'right' or 'left'
+        if (position == 'right' || position == 'left') {
+          filteredImages = images.where((image) =>
+          image.position.toLowerCase().trim() == position).toList();
+        } else {
+          // If position is defined but not 'right' or 'left', show no images
+          filteredImages = [];
+        }
+      } else {
+        // If no initialPosition defined, show all images (work as usual)
+        filteredImages = images;
+      }
+
       setState(() {
         _apiSelfImages = images;
+        _filteredSelfImages = filteredImages;
+
+        // Reset selection if no filtered images
+        if (filteredImages.isEmpty) {
+          _selectedSelfImage = null;
+          _selectedApiImageUrl = null;
+          _selectedSelfImageUrls.clear();
+          return;
+        }
+
+        // Filter based on defNum value
+        if (widget.selfDefNum != null && widget.selfDefNum! > 0) {
+          // Find image with matching defNum or fallback to first image
+          final matchingImage = filteredImages.firstWhere(
+                (image) => image.defNum == widget.selfDefNum,
+            orElse: () => filteredImages[0], // Fallback to first image
+          );
+
+          // Additional position check
+          if (widget.initialPosition.isEmpty ||
+              matchingImage.position.toLowerCase().trim() ==
+                  widget.initialPosition.toLowerCase().trim()) {
+            _selectedSelfImage = matchingImage;
+            _selectedApiImageUrl = matchingImage.imageUrl;
+            _selectedSelfImageUrls.add(matchingImage.imageUrl);
+            _updatePosition(matchingImage.position);
+          } else {
+            _selectedSelfImage = null;
+            _selectedApiImageUrl = null;
+            _selectedSelfImageUrls.clear();
+          }
+        } else {
+          // Use first image if no specific selfDefNum requested
+          _selectedSelfImage = filteredImages[0];
+          _selectedApiImageUrl = filteredImages[0].imageUrl;
+          _selectedSelfImageUrls.add(filteredImages[0].imageUrl);
+          _updatePosition(filteredImages[0].position);
+        }
       });
     } catch (e) {
-      // Optionally handle error
+      print('Error loading self images: $e');
+      setState(() {
+        _selectedSelfImage = null;
+        _selectedApiImageUrl = null;
+        _selectedSelfImageUrls.clear();
+        _filteredSelfImages = [];
+      });
     }
   }
 
@@ -1910,7 +2058,11 @@ class _SocialMediaDetailsPageState extends State<SocialMediaDetailsPage> {
           _adminBottomImageUrl = userDetail['profile'];
           _adminName = userDetail['adminAssignName'];
           _adminDesignation = userDetail['designation'];
-          _selectedFooterImageUrl= userDetail["bottom"];
+
+          // Only use admin footer image if bottomDefNum is not specified (0 or negative)
+          if (widget.bottomDefNum == null || widget.bottomDefNum! <= 0) {
+            _selectedFooterImageUrl = userDetail["bottom"];
+          }
 
           if (_adminName != null && _adminName!.isNotEmpty) {
             _name = _adminName!;
@@ -2021,6 +2173,7 @@ class _SocialMediaDetailsPageState extends State<SocialMediaDetailsPage> {
     }
   }
 
+  // Update the image upload method to clear selections
   Future<void> _pickBottomImage() async {
     final XFile? pickedFile = await _picker.pickImage(source: ImageSource.gallery);
     if (pickedFile != null) {
@@ -2029,11 +2182,15 @@ class _SocialMediaDetailsPageState extends State<SocialMediaDetailsPage> {
         _selectedUploadedImage = File(pickedFile.path);
         _selectedAssetImage = null;
         _selectedApiImageUrl = null;
-        _updatePosition('right'); // Use the normalization logic
-        // Remove _imageContainerKey = GlobalKey(); if not used elsewhere
+        _selectedSelfImageUrls.clear(); // Clear API image selection
+        _selectedSelfImage = null; // Clear API image selection
+        _updatePosition('right');
       });
     }
   }
+
+// Remove the upload button method since it's no longer needed
+// Delete or comment out the _buildImageUploadButton() method
 
 
   Future<void> _pickTopBanner() async {
@@ -2178,8 +2335,8 @@ class _SocialMediaDetailsPageState extends State<SocialMediaDetailsPage> {
     try {
       await Share.shareXFiles(
         [XFile(imageFile.path)],
-        text: 'Check out this PolyPoster!',
-        subject: 'PolyPoster Image',
+        // text: 'Check out this PolyPoster!',
+        // subject: 'PolyPoster Image',
         sharePositionOrigin: Rect.fromPoints(
           Offset.zero,
           Offset(MediaQuery.of(context).size.width,
@@ -2469,7 +2626,7 @@ class _SocialMediaDetailsPageState extends State<SocialMediaDetailsPage> {
   Future<void> _shareImage(String platform) async {
     if (_generatedImage == null) return;
 
-    final text = 'Check out my design created with PolyPoster!';
+    final text = ' ';
 
     if (platform == 'other') {
       await Share.shareXFiles(
@@ -2544,13 +2701,12 @@ class _SocialMediaDetailsPageState extends State<SocialMediaDetailsPage> {
   }
 
   // Add this to your state class to track selected images
-  Set<String> _selectedImages = Set<String>();
+  // Set<String> _selectedImages = Set<String>();
 
   Widget _buildImageRow() {
-    const int maxVisibleImages = 0;
     const double imageBoxSize = 60.0;
     const double boxSpacing = 8.0;
-    final List<SelfImage> scrollableImages = _apiSelfImages;
+    final List<SelfImage> scrollableImages = _filteredSelfImages;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2563,97 +2719,104 @@ class _SocialMediaDetailsPageState extends State<SocialMediaDetailsPage> {
           ),
         ),
         const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: SizedBox(
-                height: imageBoxSize,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: scrollableImages.length > maxVisibleImages
-                      ? scrollableImages.length
-                      : maxVisibleImages,
-                  separatorBuilder: (context, index) => SizedBox(width: boxSpacing),
-                  itemBuilder: (context, index) {
-                    if (index < scrollableImages.length) {
-                      final image = scrollableImages[index];
-                      return GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            if (_selectedImages.contains(image.imageUrl)) {
-                              _selectedImages.remove(image.imageUrl);
-                              _selectedUploadedImage = null;
-                              _selectedAssetImage = null;
-                              _selectedApiImageUrl = null;
-                            } else {
-                              _selectedImages.clear();
-                              _selectedImages.add(image.imageUrl);
-                              _selectedUploadedImage = null;
-                              _selectedAssetImage = null;
-                              _selectedApiImageUrl = image.imageUrl;
-                              _updatePosition(image.position);
-                            }
-                          });
-                        },
-                        child: Container(
+        SizedBox(
+          height: imageBoxSize,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: scrollableImages.length,
+            separatorBuilder: (context, index) => SizedBox(width: boxSpacing),
+            itemBuilder: (context, index) {
+              final image = scrollableImages[index];
+              final isSelected = _selectedSelfImageUrls.contains(image.imageUrl);
+
+              return GestureDetector(
+                onTap: () {
+                  if (isSelected) {
+                    // Unselect if already selected
+                    setState(() {
+                      _selectedSelfImageUrls.remove(image.imageUrl);
+                      _selectedSelfImage = null;
+                      _selectedApiImageUrl = null;
+                    });
+                  } else {
+                    // Select new image and clear previous selection
+                    setState(() {
+                      _selectedSelfImageUrls.clear();
+                      _selectedSelfImageUrls.add(image.imageUrl);
+                      _selectedSelfImage = image;
+                      _selectedApiImageUrl = image.imageUrl;
+                      _selectedUploadedImage = null;
+                      _selectedAssetImage = null;
+                      _updatePosition(image.position);
+                    });
+                  }
+                },
+                child: Container(
+                  width: imageBoxSize,
+                  height: imageBoxSize,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: isSelected
+                          ? SharedColors.primaryDark
+                          : Colors.grey.shade300,
+                      width: 2,
+                    ),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: Stack(
+                      children: [
+                        Image.network(
+                          image.imageUrl,
+                          fit: BoxFit.cover,
                           width: imageBoxSize,
                           height: imageBoxSize,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: _selectedImages.contains(image.imageUrl)
-                                  ? SharedColors.primaryDark
-                                  : Colors.grey.shade300,
-                              width: 2,
-                            ),
-
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(6),
-                            child: Stack(
-                              children: [
-                                image.imageUrl != null
-                                    ? Image.network(
-                                    image.imageUrl!,
-                                    fit: BoxFit.cover,
-                                    width: imageBoxSize,
-                                    height: imageBoxSize
-                                )
-                                    : Container(color: Colors.grey),
-                              ],
-                            ),
-                          ),
+                          loadingBuilder: (context, child, progress) {
+                            if (progress == null) return child;
+                            return Center(
+                              child: CircularProgressIndicator(
+                                value: progress.expectedTotalBytes != null
+                                    ? progress.cumulativeBytesLoaded / progress.expectedTotalBytes!
+                                    : null,
+                              ),
+                            );
+                          },
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              color: Colors.grey,
+                              child: Icon(Icons.broken_image, color: Colors.white),
+                            );
+                          },
                         ),
-                      );
-                    } else {
-                      return Container(
-                        width: imageBoxSize,
-                        height: imageBoxSize,
-                        decoration: BoxDecoration(
-                          color: Colors.grey[200],
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      );
-                    }
-                  },
+                        if (isSelected)
+                          Positioned(
+                            top: 4,
+                            right: 4,
+                            child: Container(
+                              padding: EdgeInsets.all(2),
+                              decoration: BoxDecoration(
+                                color: SharedColors.primaryDark,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.check,
+                                color: Colors.white,
+                                size: 12,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-            ),
-            // Commented out the plus icon for now
-            /*
-          SizedBox(width: boxSpacing),
-          SizedBox(
-            width: imageBoxSize,
-            height: imageBoxSize,
-            child: _buildImageUploadButton(),
+              );
+            },
           ),
-          */
-          ],
         ),
       ],
     );
   }
-
   Widget buildProtocolRow({
     required List<ProtocolImage> protocolImages,
     required void Function() onAdd,
@@ -2671,7 +2834,7 @@ class _SocialMediaDetailsPageState extends State<SocialMediaDetailsPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          "PROTOCOL",
+          "Protocol",
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
         ),
         const SizedBox(height: 8),
@@ -2742,7 +2905,7 @@ class _SocialMediaDetailsPageState extends State<SocialMediaDetailsPage> {
                                       child: Container(
                                         padding: EdgeInsets.all(2),
                                         decoration: BoxDecoration(
-                                         color: SharedColors.primaryDark,
+                                          color: SharedColors.primaryDark,
                                           shape: BoxShape.circle,
                                         ),
                                         child: Icon(
@@ -2888,7 +3051,7 @@ class _SocialMediaDetailsPageState extends State<SocialMediaDetailsPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          "Footer Image",
+          "Name & Designation",
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
         ),
         const SizedBox(height: 8),
@@ -3075,331 +3238,331 @@ class _SocialMediaDetailsPageState extends State<SocialMediaDetailsPage> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: SharedColors.primaryDark,
+        backgroundColor: SharedColors.primary,
         title: const Text("Social Media Details", style: TextStyle(fontSize: 16, color: Colors.white)),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
       ),
-        body: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                RepaintBoundary(
-                  key: _globalKey,
-                  child: FutureBuilder<ui.Image>(
-                    future: _loadImageDimensions(widget.assetPath),
-                    builder: (context, snapshot) {
-                      final double maxWidth = MediaQuery.of(context).size.width - 40;
-                      final double defaultAspectRatio = 5 / 5.6;
-                      double canvasHeight = maxWidth / defaultAspectRatio;
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              RepaintBoundary(
+                key: _globalKey,
+                child: FutureBuilder<ui.Image>(
+                  future: _loadImageDimensions(widget.assetPath),
+                  builder: (context, snapshot) {
+                    final double maxWidth = MediaQuery.of(context).size.width - 40;
+                    final double defaultAspectRatio = 5 / 5.6;
+                    double canvasHeight = maxWidth / defaultAspectRatio;
 
-                      if (snapshot.hasData) {
-                        final image = snapshot.data!;
-                        final imageAspectRatio = image.width / image.height;
-                        canvasHeight = maxWidth / imageAspectRatio;
-                      }
+                    if (snapshot.hasData) {
+                      final image = snapshot.data!;
+                      final imageAspectRatio = image.width / image.height;
+                      canvasHeight = maxWidth / imageAspectRatio;
+                    }
 
-                      final double protocolHeight = canvasHeight * 0.50;
-                      final double profileImgHeight = canvasHeight * 0.40;
-                      final double profileImgWidth = profileImgHeight * 0.9;
-                      final double footerHeight = canvasHeight * 0.10;
+                    final double protocolHeight = canvasHeight * 0.50;
+                    final double profileImgHeight = canvasHeight * 0.40;
+                    final double profileImgWidth = profileImgHeight * 0.9;
+                    final double footerHeight = canvasHeight * 0.10;
 
-                      return Container(
-                        width: maxWidth,
-                        height: canvasHeight,
-                        color: Colors.transparent,
-                        child: Stack(
-                          children: [
-                            // Background Image
-                            Container(
-                              padding: const EdgeInsets.only(top: 0),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(8),
-                                child: Image.network(
-                                  widget.assetPath,
-                                  width: maxWidth,
-                                  height: canvasHeight,
-                                  fit: BoxFit.cover,
-                                  loadingBuilder: (context, child, loadingProgress) {
-                                    if (loadingProgress == null) return child;
-                                    return const Center(child: CircularProgressIndicator());
-                                  },
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return const Center(
-                                      child: Icon(Icons.broken_image, size: 50, color: Colors.grey),
-                                    );
-                                  },
-                                ),
-                              ),
-                            ),
-                            // Protocol / Top Banner
-                            Positioned(
-                              top: 0,
-                              left: 0,
-                              right: 0,
-                              height: protocolHeight,
-                              child: OverflowBox(
-                                maxHeight: protocolHeight,
-                                child: _topBannerImage != null
-                                    ? Image.file(
-                                  _topBannerImage!,
-                                  width: double.infinity,
-                                  height: double.infinity,
-                                  fit: BoxFit.contain,  // Changed from cover to contain
-                                  alignment: Alignment.topCenter,
-                                )
-                                    : _selectedProtocolImageUrl != null
-                                    ? Image.network(
-                                  _selectedProtocolImageUrl!,
-                                  width: double.infinity,
-                                  height: double.infinity,
-                                  fit: BoxFit.contain,  // Changed from cover to contain
-                                  alignment: Alignment.topCenter,
-                                )
-                                    : (_adminTopBannerUrl != null && _adminTopBannerUrl!.isNotEmpty)
-                                    ? Image.network(
-                                  _adminTopBannerUrl!,
-                                  width: double.infinity,
-                                  height: double.infinity,
-                                  fit: BoxFit.contain,  // Changed from cover to contain
-                                  alignment: Alignment.topCenter,
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return Container();
-                                  },
-                                )
-                                    : Container(),
-                              ),
-                            ),
-                            // Profile Image
-                            Positioned(
-                              bottom: footerHeight + 0,
-                              right: _selectedPosition == 'right' ? 0 : null,
-                              left: _selectedPosition == 'left' ? 0 : null,
-                              child: AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 300),
-                                transitionBuilder: (Widget child, Animation<double> animation) {
-                                  return ScaleTransition(scale: animation, child: child);
+                    return Container(
+                      width: maxWidth,
+                      height: canvasHeight,
+                      color: Colors.transparent,
+                      child: Stack(
+                        children: [
+                          // Background Image
+                          Container(
+                            padding: const EdgeInsets.only(top: 0),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: Image.network(
+                                widget.assetPath,
+                                width: maxWidth,
+                                height: canvasHeight,
+                                fit: BoxFit.cover,
+                                loadingBuilder: (context, child, loadingProgress) {
+                                  if (loadingProgress == null) return child;
+                                  return const Center(child: CircularProgressIndicator());
                                 },
-                                child: Container(
-                                  key: ValueKey<String>(
-                                    '${_selectedApiImageUrl}_${_selectedUploadedImage?.path}_$_selectedPosition',
-                                  ),
-                                  width: profileImgWidth,
-                                  height: profileImgHeight,
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Builder(
-                                    builder: (context) {
-                                      if (_selectedUploadedImage != null) {
-                                        return ClipRRect(
-                                          borderRadius: BorderRadius.circular(8),
-                                          child: Image.file(
-                                            _selectedUploadedImage!,
-                                            fit: BoxFit.cover,
-                                          ),
-                                        );
-                                      } else if (_selectedApiImageUrl != null) {
-                                        return ClipRRect(
-                                          borderRadius: BorderRadius.circular(8),
-                                          child: Image.network(
-                                            _selectedApiImageUrl!,
-                                            fit: BoxFit.cover,
-                                            loadingBuilder: (context, child, progress) {
-                                              if (progress == null) return child;
-                                              return Center(
-                                                child: CircularProgressIndicator(
-                                                  value: progress.expectedTotalBytes != null
-                                                      ? progress.cumulativeBytesLoaded / progress.expectedTotalBytes!
-                                                      : null,
-                                                ),
-                                              );
-                                            },
-                                            errorBuilder: (context, error, stackTrace) {
-                                              return Container();
-                                            },
-                                          ),
-                                        );
-                                      } else if (_adminBottomImageUrl != null && _adminBottomImageUrl!.isNotEmpty) {
-                                        return ClipRRect(
-                                          borderRadius: BorderRadius.circular(8),
-                                          child: Image.network(
-                                            _adminBottomImageUrl!,
-                                            fit: BoxFit.cover,
-                                            errorBuilder: (context, error, stackTrace) {
-                                              return Container();
-                                            },
-                                          ),
-                                        );
-                                      } else {
-                                        return Container();
-                                      }
-                                    },
-                                  ),
-                                ),
+                                errorBuilder: (context, error, stackTrace) {
+                                  return const Center(
+                                    child: Icon(Icons.broken_image, size: 50, color: Colors.grey),
+                                  );
+                                },
                               ),
                             ),
-                            // Footer Container
-                            Positioned(
-                              bottom: 0,
-                              left: 0,
-                              right: 0,
+                          ),
+                          // Protocol / Top Banner
+                          Positioned(
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            height: protocolHeight,
+                            child: OverflowBox(
+                              maxHeight: protocolHeight,
+                              child: _topBannerImage != null
+                                  ? Image.file(
+                                _topBannerImage!,
+                                width: double.infinity,
+                                height: double.infinity,
+                                fit: BoxFit.contain,  // Changed from cover to contain
+                                alignment: Alignment.topCenter,
+                              )
+                                  : _selectedProtocolImageUrl != null
+                                  ? Image.network(
+                                _selectedProtocolImageUrl!,
+                                width: double.infinity,
+                                height: double.infinity,
+                                fit: BoxFit.contain,  // Changed from cover to contain
+                                alignment: Alignment.topCenter,
+                              )
+                                  : (_adminTopBannerUrl != null && _adminTopBannerUrl!.isNotEmpty)
+                                  ? Image.network(
+                                _adminTopBannerUrl!,
+                                width: double.infinity,
+                                height: double.infinity,
+                                fit: BoxFit.contain,  // Changed from cover to contain
+                                alignment: Alignment.topCenter,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Container();
+                                },
+                              )
+                                  : Container(),
+                            ),
+                          ),
+                          // Profile Image
+                          Positioned(
+                            bottom: footerHeight + 0,
+                            right: _selectedPosition == 'right' ? 0 : null,
+                            left: _selectedPosition == 'left' ? 0 : null,
+                            child: AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 300),
+                              transitionBuilder: (Widget child, Animation<double> animation) {
+                                return ScaleTransition(scale: animation, child: child);
+                              },
                               child: Container(
-                                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
-                                height: footerHeight,
-                                decoration: BoxDecoration(
-                                  color: _nameContainerColor ?? Colors.transparent,
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.transparent.withOpacity(0.1),
-                                      spreadRadius: 5,
-                                      blurRadius: 7,
-                                      offset: const Offset(0, 3),
-                                    ),
-                                  ],
-                                  image: _selectedLocalImage != null
-                                      ? DecorationImage(
-                                    image: FileImage(_selectedLocalImage!),
-                                    fit: BoxFit.cover,
-                                  )
-                                      : _selectedFooterImageUrl != null
-                                      ? DecorationImage(
-                                    image: NetworkImage(_selectedFooterImageUrl!),
-                                    fit: BoxFit.cover,
-                                  )
-                                      : const DecorationImage(
-                                    image: AssetImage('assets/background.png'),
-                                    fit: BoxFit.contain,
-                                  ),
+                                key: ValueKey<String>(
+                                  '${_selectedApiImageUrl}_${_selectedUploadedImage?.path}_$_selectedPosition',
                                 ),
-                                child: LayoutBuilder(
-                                  builder: (context, constraints) {
-                                    double calculateFontSize(String text, double maxWidth, double baseSize, String fontFamily) {
-                                      if (text.trim().isEmpty) return baseSize;
-                                      final textLength = text.length;
-                                      double fontSize = baseSize;
-                                      if (textLength > 30) fontSize = baseSize * 0.8;
-                                      if (textLength > 50) fontSize = baseSize * 0.7;
-                                      final textPainter = TextPainter(
-                                        text: TextSpan(text: text, style: TextStyle(fontSize: fontSize, fontFamily: fontFamily)),
-                                        maxLines: 2,
-                                        textDirection: TextDirection.ltr,
-                                      )..layout(maxWidth: maxWidth);
-                                      if (textPainter.didExceedMaxLines) fontSize *= 0.9;
-                                      return fontSize;
+                                width: profileImgWidth,
+                                height: profileImgHeight,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Builder(
+                                  builder: (context) {
+                                    if (_selectedUploadedImage != null) {
+                                      return ClipRRect(
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: Image.file(
+                                          _selectedUploadedImage!,
+                                          fit: BoxFit.cover,
+                                        ),
+                                      );
+                                    } else if (_selectedApiImageUrl != null) {
+                                      return ClipRRect(
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: Image.network(
+                                          _selectedApiImageUrl!,
+                                          fit: BoxFit.cover,
+                                          loadingBuilder: (context, child, progress) {
+                                            if (progress == null) return child;
+                                            return Center(
+                                              child: CircularProgressIndicator(
+                                                value: progress.expectedTotalBytes != null
+                                                    ? progress.cumulativeBytesLoaded / progress.expectedTotalBytes!
+                                                    : null,
+                                              ),
+                                            );
+                                          },
+                                          errorBuilder: (context, error, stackTrace) {
+                                            return Container();
+                                          },
+                                        ),
+                                      );
+                                    } else if (_adminBottomImageUrl != null && _adminBottomImageUrl!.isNotEmpty) {
+                                      return ClipRRect(
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: Image.network(
+                                          _adminBottomImageUrl!,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (context, error, stackTrace) {
+                                            return Container();
+                                          },
+                                        ),
+                                      );
+                                    } else {
+                                      return Container();
                                     }
-
-                                    final double halfWidth = (constraints.maxWidth / 2) - 20;
-                                    final nameFontSize = calculateFontSize(_name, halfWidth, _nameTextStyle.fontSize ?? 16, 'Ramabhadra');
-                                    final designationFontSize = calculateFontSize(_designation, halfWidth, _designationTextStyle.fontSize ?? 14, 'Ramabhadra');
-
-                                    final nameToShow = _name.isEmpty ? " " : _name;
-                                    final designationToShow = _designation.isEmpty ? " " : _designation;
-
-                                    return Center(
-                                      child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        crossAxisAlignment: CrossAxisAlignment.center,
-                                        children: [
-                                          Expanded(
-                                            child: GestureDetector(
-                                              onTap: () => _editText("Name", _name, (val) => setState(() => _name = val)),
-                                              child: Container(
-                                                alignment: Alignment.center,
-                                                child: Text(
-                                                  nameToShow,
-                                                  textAlign: TextAlign.center,
-                                                  style: _nameTextStyle.copyWith(
-                                                    color: _name.isEmpty ? Colors.grey : _nameTextColor,
-                                                    fontSize: nameFontSize,
-                                                    fontFamily: 'Ramabhadra',
-                                                    fontWeight: _name.isEmpty ? FontWeight.normal : _nameTextStyle.fontWeight,
-                                                  ),
-                                                  maxLines: 2,
-                                                  overflow: TextOverflow.visible,
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                          Container(
-                                            width: 2,
-                                            height: footerHeight * 0.7,
-                                            color: _dividerColor ?? Colors.transparent,
-                                            margin: const EdgeInsets.symmetric(horizontal: 8),
-                                          ),
-                                          Expanded(
-                                            child: GestureDetector(
-                                              onTap: () => _editText("Designation", _designation, (val) => setState(() => _designation = val)),
-                                              child: Container(
-                                                alignment: Alignment.center,
-                                                child: Text(
-                                                  designationToShow,
-                                                  textAlign: TextAlign.center,
-                                                  style: _designationTextStyle.copyWith(
-                                                    color: _designation.isEmpty ? Colors.grey : _designationTextColor,
-                                                    fontSize: designationFontSize,
-                                                    fontFamily: 'Ramabhadra',
-                                                    fontWeight: _designation.isEmpty ? FontWeight.normal : _designationTextStyle.fontWeight,
-                                                  ),
-                                                  maxLines: 2,
-                                                  overflow: TextOverflow.visible,
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    );
                                   },
                                 ),
                               ),
                             ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
+                          ),
+                          // Footer Container
+                          Positioned(
+                            bottom: 0,
+                            left: 0,
+                            right: 0,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+                              height: footerHeight,
+                              decoration: BoxDecoration(
+                                color: _nameContainerColor ?? Colors.transparent,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.transparent,
+                                    spreadRadius: 5,
+                                    blurRadius: 7,
+                                    offset: const Offset(0, 3),
+                                  ),
+                                ],
+                                image: _selectedLocalImage != null
+                                    ? DecorationImage(
+                                  image: FileImage(_selectedLocalImage!),
+                                  fit: BoxFit.cover,
+                                )
+                                    : _selectedFooterImageUrl != null
+                                    ? DecorationImage(
+                                  image: NetworkImage(_selectedFooterImageUrl!),
+                                  fit: BoxFit.cover,
+                                )
+                                    : const DecorationImage(
+                                  image: AssetImage('assets/background.png'),
+                                  fit: BoxFit.contain,
+                                ),
+                              ),
+                              child: LayoutBuilder(
+                                builder: (context, constraints) {
+                                  double calculateFontSize(String text, double maxWidth, double baseSize, String fontFamily) {
+                                    if (text.trim().isEmpty) return baseSize;
+                                    final textLength = text.length;
+                                    double fontSize = baseSize;
+                                    if (textLength > 30) fontSize = baseSize * 0.8;
+                                    if (textLength > 50) fontSize = baseSize * 0.7;
+                                    final textPainter = TextPainter(
+                                      text: TextSpan(text: text, style: TextStyle(fontSize: fontSize, fontFamily: fontFamily)),
+                                      maxLines: 2,
+                                      textDirection: TextDirection.ltr,
+                                    )..layout(maxWidth: maxWidth);
+                                    if (textPainter.didExceedMaxLines) fontSize *= 0.9;
+                                    return fontSize;
+                                  }
+
+                                  final double halfWidth = (constraints.maxWidth / 2) - 20;
+                                  final nameFontSize = calculateFontSize(_name, halfWidth, _nameTextStyle.fontSize ?? 16, 'Ramabhadra');
+                                  final designationFontSize = calculateFontSize(_designation, halfWidth, _designationTextStyle.fontSize ?? 14, 'Ramabhadra');
+
+                                  final nameToShow = _name.isEmpty ? " " : _name;
+                                  final designationToShow = _designation.isEmpty ? " " : _designation;
+
+                                  return Center(
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      crossAxisAlignment: CrossAxisAlignment.center,
+                                      children: [
+                                        Expanded(
+                                          child: GestureDetector(
+                                            onTap: () => _editText("Name", _name, (val) => setState(() => _name = val)),
+                                            child: Container(
+                                              alignment: Alignment.center,
+                                              child: Text(
+                                                nameToShow,
+                                                textAlign: TextAlign.center,
+                                                style: _nameTextStyle.copyWith(
+                                                  color: _name.isEmpty ? Colors.grey : _nameTextColor,
+                                                  fontSize: nameFontSize,
+                                                  fontFamily: 'Ramabhadra',
+                                                  fontWeight: _name.isEmpty ? FontWeight.normal : _nameTextStyle.fontWeight,
+                                                ),
+                                                maxLines: 2,
+                                                overflow: TextOverflow.visible,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        Container(
+                                          width: 2,
+                                          height: footerHeight * 0.7,
+                                          color: _dividerColor ?? Colors.transparent,
+                                          margin: const EdgeInsets.symmetric(horizontal: 8),
+                                        ),
+                                        Expanded(
+                                          child: GestureDetector(
+                                            onTap: () => _editText("Designation", _designation, (val) => setState(() => _designation = val)),
+                                            child: Container(
+                                              alignment: Alignment.center,
+                                              child: Text(
+                                                designationToShow,
+                                                textAlign: TextAlign.center,
+                                                style: _designationTextStyle.copyWith(
+                                                  color: _designation.isEmpty ? Colors.grey : _designationTextColor,
+                                                  fontSize: designationFontSize,
+                                                  fontFamily: 'Ramabhadra',
+                                                  fontWeight: _designation.isEmpty ? FontWeight.normal : _designationTextStyle.fontWeight,
+                                                ),
+                                                maxLines: 2,
+                                                overflow: TextOverflow.visible,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
                 ),
+              ),
 
 
               const SizedBox(height: 0),
               _buildImageRow(),
               const SizedBox(height: 20),
               const SizedBox(height: 20),
-                buildProtocolRow(
-                  protocolImages: _protocolImages,
-                  onAdd: _pickTopBanner,
-                  onSelect: (index) {
-                    setState(() {
-                      if (index == -1) {
-                        _selectedProtocolImageUrl = null;
-                      } else {
-                        _selectedProtocolImageUrl = _protocolImages[index].imageUrl;
-                      }
-                      _topBannerImage = null;
-                    });
-                  },
-                ),
+              buildProtocolRow(
+                protocolImages: _protocolImages,
+                onAdd: _pickTopBanner,
+                onSelect: (index) {
+                  setState(() {
+                    if (index == -1) {
+                      _selectedProtocolImageUrl = null;
+                    } else {
+                      _selectedProtocolImageUrl = _protocolImages[index].imageUrl;
+                    }
+                    _topBannerImage = null;
+                  });
+                },
+              ),
               const SizedBox(height: 20),
-                buildFooterRow(
-                  footerImages: _footerImages,
-                  onAdd: _pickFooterImage,
-                  onSelect: (index) {
-                    setState(() {
-                      if (index == -1) {
-                        _selectedFooterImageUrl = null;
-                      } else {
-                        _selectedFooterImageUrl = _footerImages[index].imageUrl;
-                      }
-                      _selectedLocalImage = null;
-                    });
-                  },
-                  selectedFooterImageUrl: _selectedFooterImageUrl,
-                ),
+              buildFooterRow(
+                footerImages: _footerImages,
+                onAdd: _pickFooterImage,
+                onSelect: (index) {
+                  setState(() {
+                    if (index == -1) {
+                      _selectedFooterImageUrl = null;
+                    } else {
+                      _selectedFooterImageUrl = _footerImages[index].imageUrl;
+                    }
+                    _selectedLocalImage = null;
+                  });
+                },
+                selectedFooterImageUrl: _selectedFooterImageUrl,
+              ),
               Container(
                 margin: const EdgeInsets.only(top: 12),
                 child: LayoutBuilder(
@@ -3414,15 +3577,15 @@ class _SocialMediaDetailsPageState extends State<SocialMediaDetailsPage> {
                             //   "Edit Name",
                             //       () => _editText("Name", _name, (value) => _name = value),
                             // ),
-                          //   const SizedBox(width: 10),
-                          //   _buildResponsiveButton(
-                          //     "Edit Designation",
-                          //         () => _editText("Designation", _designation, (value) => _designation = value),
-                          //   ),
-                          //   const SizedBox(width: 10),
-                          //   _buildResponsiveButton("Text Size", _selectTextSize),
-                          //   const SizedBox(width: 10),
-                          //   _buildResponsiveButton("Text Color & Style", _selectTextColorAndStyle),
+                            //   const SizedBox(width: 10),
+                            //   _buildResponsiveButton(
+                            //     "Edit Designation",
+                            //         () => _editText("Designation", _designation, (value) => _designation = value),
+                            //   ),
+                            //   const SizedBox(width: 10),
+                            //   _buildResponsiveButton("Text Size", _selectTextSize),
+                            //   const SizedBox(width: 10),
+                            //   _buildResponsiveButton("Text Color & Style", _selectTextColorAndStyle),
                           ],
                         ),
                       ),
@@ -3441,22 +3604,10 @@ class _SocialMediaDetailsPageState extends State<SocialMediaDetailsPage> {
                   ),
                   onPressed: _isGenerating ? null : _generateImageWithLoader,
                   child: _isGenerating
-                      ? Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      CircularProgressIndicator(
-                        value: _generationProgress,
-                        backgroundColor: Colors.white.withOpacity(0.3),
-                        valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-                      ),
-                      const SizedBox(width: 10),
-                      Text(
-                        '${(_generationProgress * 100).toStringAsFixed(0)}%',
-                        style: const TextStyle(fontSize: 16, color: Colors.white),
-                      ),
-                    ],
-                  )
-                      : const Text("Generate", style: TextStyle(fontSize: 16, color: Colors.white)),
+                      ? const Text("Your image is generating...",
+                      style: TextStyle(fontSize: 16, color: Colors.white))
+                      : const Text("Generate",
+                      style: TextStyle(fontSize: 16, color: Colors.white)),
                 ),
               ),
               const SizedBox(height: 20),

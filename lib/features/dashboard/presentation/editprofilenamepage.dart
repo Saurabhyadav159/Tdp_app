@@ -87,7 +87,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: SharedColors.primary,
+        backgroundColor: SharedColors. primaryDark,
         title: const Text("Edit Profile", style: TextStyle(color: Colors.white)),
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
@@ -138,7 +138,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
             keyboardType: _getKeyboardType(label),
             decoration: InputDecoration(
               prefixIcon: Icon(icon, color: Colors.grey),
-              border: _buildBorder(SharedColors.primaryDark),
+              border: _buildBorder(SharedColors. primaryDark),
               enabledBorder: _buildBorder(SharedColors.primaryDark),
               focusedBorder: _buildBorder(SharedColors.primaryDark),
               contentPadding:

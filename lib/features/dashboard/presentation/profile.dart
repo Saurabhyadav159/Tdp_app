@@ -432,7 +432,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             child: const Icon(Icons.logout, color: Colors.white, size: 18),
                           ),
                           const SizedBox(width: 8),
-                          const Text("Logout my profile", style: TextStyle(color: Colors.red)),
+                          const Text("Swipe right to logout ", style: TextStyle(color: Colors.red)),
                         ],
                       ),
                     ),

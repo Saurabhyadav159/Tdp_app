@@ -57,7 +57,11 @@ class AllPosterPage extends StatelessWidget {
                     builder: (context) => SocialMediaDetailsPage(
                       assetPath: poster.posterUrl,
                       categoryId: category.id,
+                      initialPosition: poster.position ?? "RIGHT", // default to RIGHT if null
                       posterId: poster.id,
+                      topDefNum: poster.topDefNum,
+                      selfDefNum: poster.selfDefNum,
+                      bottomDefNum: poster.bottomDefNum,
                     ),
                   ),
                 );
